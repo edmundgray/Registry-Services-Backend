@@ -1,2 +1,7 @@
 # Registry-Services-Backend
-##Files here should include anything to do with the backend including scripts
+
+## The script files will create the Database locally
+
+## The Spreadsheet includes data that can be imported into the Core and Extension Models
+
+## The Word doc explains how the database works
