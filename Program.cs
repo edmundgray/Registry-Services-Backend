@@ -49,7 +49,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI(options => // Optional: Configure Swagger UI
     {
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "Registry API v1");
-        options.RoutePrefix = string.Empty; // Serve Swagger UI at app root
+        //options.RoutePrefix = string.Empty; // Serve Swagger UI at app root
     });
     // Use developer exception page for detailed errors in development
     app.UseDeveloperExceptionPage();
