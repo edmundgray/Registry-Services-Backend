@@ -21,11 +21,11 @@ public class SpecificationCore
     [MaxLength(20)]
     public required string Cardinality { get; set; }
 
-    [MaxLength(10)] // Based on SQL script nchar(10)
+    [Column(TypeName = "text")]
     public string? UsageNote { get; set; }
 
     [Required]
-    [Column(TypeName = "text")]
+    [MaxLength(50)]
     public required string TypeOfChange { get; set; }
 
     // Navigation properties
