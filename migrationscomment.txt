@@ -1,0 +1,4 @@
+as of 14/05 the following was in my migrations table in SQL
+MigrationId	ProductVersion
+20250512210850_InitialCreateForExistingDB	9.0.4
+20250512211227_ChangedSpecificationCore	9.0.4
