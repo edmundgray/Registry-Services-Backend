@@ -21,7 +21,10 @@ public class SpecificationProfile : Profile
         // SpecificationCore Mappings
         CreateMap<SpecificationCoreCreateDto, SpecificationCore>();
         CreateMap<SpecificationCoreUpdateDto, SpecificationCore>();
-        CreateMap<SpecificationCore, SpecificationCoreDto>();
+        CreateMap<SpecificationCore, SpecificationCoreDto>()
+            .ForMember(dest => dest.CoreBusinessTerm, opt => opt.MapFrom(src => src.CoreInvoiceModel.BusinessTerm))
+            .ForMember(dest => dest.CoreLevel, opt => opt.MapFrom(src => src.CoreInvoiceModel.Level))
+            .ForMember(dest => dest.CoreSemanticDescription, opt => opt.MapFrom(src => src.CoreInvoiceModel.SemanticDescription));
 
         // SpecificationExtensionComponent Mappings
         CreateMap<SpecificationExtensionComponentCreateDto, SpecificationExtensionComponent>();

@@ -12,19 +12,23 @@ public class SpecificationCoreRepository(RegistryDbContext context)
 {
     public async Task<PagedList<SpecificationCore>> GetBySpecificationIdPaginatedAsync(int specificationId, PaginationParams paginationParams)
     {
-         var query = _dbSet
-            .Where(sc => sc.IdentityID == specificationId)
-            .AsNoTracking()
-            .OrderBy(sc => sc.BusinessTermID); // Example ordering
+        var query = _dbSet
+           .Where(sc => sc.IdentityID == specificationId)
+           .Include(sc => sc.CoreInvoiceModel) // Eagerly load the CoreInvoiceModel
+           .AsNoTracking()
+           .OrderBy(sc => sc.BusinessTermID); // Example ordering
 
         return await PagedList<SpecificationCore>.CreateAsync(query, paginationParams.PageNumber, paginationParams.PageSize);
     }
 
-     public async Task<SpecificationCore?> GetByIdAndSpecificationIdAsync(int coreElementId, int specificationId)
-     {
-          // Find by composite logical key (PK + Parent FK)
-          return await _dbSet.FirstOrDefaultAsync(sc => sc.EntityID == coreElementId && sc.IdentityID == specificationId);
-     }
+    public async Task<SpecificationCore?> GetByIdAndSpecificationIdAsync(int coreElementId, int specificationId)
+    {
+        // Find by composite logical key (PK + Parent FK)
+        // Include CoreInvoiceModel if you need these details when fetching a single item too
+        return await _dbSet
+                      .Include(sc => sc.CoreInvoiceModel)
+                      .FirstOrDefaultAsync(sc => sc.EntityID == coreElementId && sc.IdentityID == specificationId);
+    }
 
     public async Task<bool> CoreInvoiceModelExistsAsync(string businessTermId)
     {
