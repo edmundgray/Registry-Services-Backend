@@ -29,6 +29,9 @@ public class SpecificationIdentifyingInformation
 
     [MaxLength(50)]
     public string? SpecificationVersion { get; set; }
+    
+    [MaxLength(50)]
+    public string? SpecificationType { get; set; }
 
     [Required]
     public required string ContactInformation { get; set; }
@@ -53,6 +56,12 @@ public class SpecificationIdentifyingInformation
 
     [MaxLength(100)]
     public string? PreferredSyntax { get; set; }
+
+    [MaxLength(50)]
+    public string? RegistryStatus { get; set; }
+
+    [MaxLength(50)]
+    public string? ConformanceLeval { get; set; }
 
     // Navigation properties - Initialized using collection expression []
     public virtual ICollection<SpecificationCore> SpecificationCores { get; set; } = [];
