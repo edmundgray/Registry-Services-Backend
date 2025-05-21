@@ -20,7 +20,8 @@ public class SpecificationsController : ControllerBase
     // In Phase 7 (Authentication), this will be replaced by getting user from HttpContext.User
     private CurrentUserContext GetSimulatedAdminContext() => new CurrentUserContext(UserId: 1, Role: "Admin", UserGroupId: null);
     // Example simulated regular user (adjust ID and GroupID as needed for testing)
-    private CurrentUserContext GetSimulatedUserContext() => new CurrentUserContext(UserId: 2, Role: "User", UserGroupId: 1);
+    private CurrentUserContext GetSimulatedUserContext() => new CurrentUserContext(UserId: 2, Role: "User", UserGroupId: 1); // Assuming UserGroupID 1 exists
+    private CurrentUserContext GetSimulatedUserWithoutGroupContext() => new CurrentUserContext(UserId: 3, Role: "User", UserGroupId: null);
     // ----------------------------------------------------
 
     public SpecificationsController(ISpecificationService specificationService, ILogger<SpecificationsController> logger)
@@ -38,6 +39,38 @@ public class SpecificationsController : ControllerBase
         var result = await _specificationService.GetSpecificationsAsync(paginationParams);
         return TypedResults.Ok(result);
     }
+
+    // New Endpoint: GET /api/specifications/by-user-group
+    [HttpGet("by-user-group")]
+    [ProducesResponseType<PaginatedSpecificationHeaderResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)] // If other errors occur
+    public async Task<Results<Ok<PaginatedSpecificationHeaderResponse>, UnauthorizedHttpResult, ForbidHttpResult, BadRequest<string>>> GetSpecificationsByUserGroup(
+        [FromQuery] HelpersPaginationParams paginationParams)
+    {
+        // TEMPORARY: Simulate a logged-in user. Replace with actual user context in Phase 7.
+        // For testing, let's simulate a regular user with a group.
+        // To test Admin: var currentUser = GetSimulatedAdminContext();
+        // To test User without group: var currentUser = GetSimulatedUserWithoutGroupContext();
+        var currentUser = GetSimulatedUserContext();
+
+        if (currentUser == null) // Should not happen with simulation, but good practice for real auth
+        {
+            return TypedResults.Unauthorized();
+        }
+
+        var (status, response) = await _specificationService.GetSpecificationsByUserGroupAsync(currentUser, paginationParams);
+
+        return status switch
+        {
+            ServiceResult.Success => TypedResults.Ok(response!),
+            ServiceResult.Forbidden => TypedResults.Forbid(),
+            ServiceResult.Unauthorized => TypedResults.Unauthorized(),
+            _ => TypedResults.BadRequest("Could not retrieve specifications for the user group.")
+        };
+    }
+
 
     [HttpGet("{id:int}")]
     [ProducesResponseType<SpecificationIdentifyingInformationDetailDto>(StatusCodes.Status200OK)]
@@ -62,9 +95,7 @@ public class SpecificationsController : ControllerBase
         if (!ModelState.IsValid) return TypedResults.BadRequest("Invalid specification data.");
 
         // TEMPORARY: Simulate a logged-in user. Replace with actual user context in Phase 7.
-        // For testing, let's assume a regular user is creating this.
         var currentUser = GetSimulatedUserContext();
-        // If testing Admin creation, use: var currentUser = GetSimulatedAdminContext();
 
         var (status, createdSpecDto) = await _specificationService.CreateSpecificationAsync(createDto, currentUser);
 
@@ -89,8 +120,7 @@ public class SpecificationsController : ControllerBase
     {
         if (!ModelState.IsValid) return TypedResults.BadRequest("Invalid specification update data.");
 
-        // TEMPORARY: Simulate. Admins can edit, users can edit if their group owns it.
-        var currentUser = GetSimulatedUserContext(); // Or GetSimulatedAdminContext() for testing admin path
+        var currentUser = GetSimulatedUserContext();
 
         var result = await _specificationService.UpdateSpecificationAsync(id, updateDto, currentUser);
 
@@ -112,8 +142,7 @@ public class SpecificationsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status409Conflict)]
     public async Task<Results<NoContent, NotFound, Conflict<string>, UnauthorizedHttpResult, ForbidHttpResult, BadRequest<string>>> DeleteSpecification(int id)
     {
-        // TEMPORARY: Simulate.
-        var currentUser = GetSimulatedAdminContext(); // Deletion might often be an Admin task, or a user deleting their own.
+        var currentUser = GetSimulatedAdminContext();
 
         var result = await _specificationService.DeleteSpecificationAsync(id, currentUser);
 
@@ -123,12 +152,11 @@ public class SpecificationsController : ControllerBase
             DeleteResult.NotFound => TypedResults.NotFound(),
             DeleteResult.Conflict => TypedResults.Conflict("Cannot delete specification because it has associated core or extension elements."),
             DeleteResult.Forbidden => TypedResults.Forbid(),
-            DeleteResult.Error => TypedResults.BadRequest("Could not delete specification due to an error."), // Map Error to BadRequest
+            DeleteResult.Error => TypedResults.BadRequest("Could not delete specification due to an error."),
             _ => TypedResults.BadRequest("Could not delete specification.")
         };
     }
 
-    // PUT: api/specifications/{id}/assign-group/{groupId} (Admin Only)
     [HttpPut("{id:int}/assign-group/{groupId:int?}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -137,7 +165,7 @@ public class SpecificationsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<Results<NoContent, BadRequest<string>, NotFound, UnauthorizedHttpResult, ForbidHttpResult>> AssignSpecificationToGroup(int id, int? groupId)
     {
-        var currentUser = GetSimulatedAdminContext(); // This is an Admin action
+        var currentUser = GetSimulatedAdminContext();
         var result = await _specificationService.AssignSpecificationToGroupAsync(id, groupId, currentUser);
 
         return result switch
@@ -150,7 +178,6 @@ public class SpecificationsController : ControllerBase
         };
     }
 
-    // PUT: api/specifications/{id}/remove-group (Admin Only)
     [HttpPut("{id:int}/remove-group")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -158,8 +185,8 @@ public class SpecificationsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<Results<NoContent, NotFound, UnauthorizedHttpResult, ForbidHttpResult, BadRequest<string>>> RemoveSpecificationFromGroup(int id)
     {
-        var currentUser = GetSimulatedAdminContext(); // This is an Admin action
-        var result = await _specificationService.AssignSpecificationToGroupAsync(id, null, currentUser); // Assign to null group
+        var currentUser = GetSimulatedAdminContext();
+        var result = await _specificationService.AssignSpecificationToGroupAsync(id, null, currentUser);
 
         return result switch
         {

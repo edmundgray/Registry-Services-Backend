@@ -19,7 +19,7 @@ public interface ISpecificationService
     Task<ServiceResult> UpdateSpecificationAsync(int id, SpecificationIdentifyingInformationUpdateDto updateDto, CurrentUserContext? currentUser);
     Task<DeleteResult> DeleteSpecificationAsync(int id, CurrentUserContext? currentUser);
     Task<ServiceResult> AssignSpecificationToGroupAsync(int specificationId, int? userGroupId, CurrentUserContext? currentUser); // New Admin method
-
+    Task<(ServiceResult Status, PaginatedSpecificationHeaderResponse? Response)> GetSpecificationsByUserGroupAsync(CurrentUserContext currentUser, PaginationParams paginationParams); // New Method
 
     // Specification Core Methods
     Task<PaginatedSpecificationCoreResponse?> GetSpecificationCoresAsync(int specificationId, PaginationParams paginationParams);

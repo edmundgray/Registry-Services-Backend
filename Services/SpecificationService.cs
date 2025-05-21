@@ -56,6 +56,56 @@ public class SpecificationService(
         );
     }
 
+    public async Task<(ServiceResult Status, PaginatedSpecificationHeaderResponse? Response)> GetSpecificationsByUserGroupAsync(
+        CurrentUserContext currentUser,
+        PaginationParams paginationParams)
+    {
+        PagedList<SpecificationIdentifyingInformation> pagedEntities;
+
+        if (currentUser == null)
+        {
+            logger.LogWarning("Attempt to get specifications by user group without user context.");
+            return (ServiceResult.Unauthorized, null);
+        }
+
+        if (currentUser.Role == "Admin")
+        {
+            // Admins see all specifications
+            pagedEntities = await specInfoRepo.GetAllPaginatedAsync(paginationParams);
+        }
+        else if (currentUser.Role == "User")
+        {
+            if (!currentUser.UserGroupId.HasValue)
+            {
+                // User has no group, so they are forbidden from seeing group-specific specifications
+                logger.LogWarning("User {UserId} attempted to get group specifications but has no UserGroupID.", currentUser.UserId);
+                return (ServiceResult.Forbidden, null);
+            }
+            // Fetch specifications for the user's specific group
+            pagedEntities = await specInfoRepo.GetByUserGroupIdPaginatedAsync(currentUser.UserGroupId.Value, paginationParams);
+        }
+        else
+        {
+            logger.LogError("Unknown role {Role} for user {UserId} attempting to get group specifications.", currentUser.Role, currentUser.UserId);
+            return (ServiceResult.Unauthorized, null); // Or BadRequest for unknown role
+        }
+
+        var dtos = mapper.Map<List<SpecificationIdentifyingInformationHeaderDto>>(pagedEntities.Items);
+        var response = new PaginatedSpecificationHeaderResponse(
+            Metadata: new PaginationMetadata(
+                pagedEntities.TotalCount,
+                pagedEntities.PageSize,
+                pagedEntities.PageNumber,
+                pagedEntities.TotalPages,
+                pagedEntities.HasNextPage,
+                pagedEntities.HasPreviousPage
+            ),
+            Items: dtos
+        );
+        return (ServiceResult.Success, response);
+    }
+
+
     public async Task<SpecificationIdentifyingInformationDetailDto?> GetSpecificationByIdAsync(int id, PaginationParams coreParams, PaginationParams extParams)
     {
         var entity = await specInfoRepo.GetByIdAsync(id);
