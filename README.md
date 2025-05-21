@@ -1,9 +1,6 @@
 # Registry-Services-Backend
 
-## The script files will create the Database locally
-
-## The Spreadsheet includes data that can be imported into the Core and Extension Models
-
-## The Word doc explains how the database works
+## Documents and Instructions now have the files you may need to setup the environment
 
 ## Look at the file ConnectionStringSecretsSetup.md to hide your ConnectionString from the code
+
