@@ -1,10 +1,6 @@
 # Registry-Services-Backend
-## Code is on code-dev branch
 
-## On the main branch:
+## Documents and Instructions now have the files you may need to setup the environment
 
-### The script files will create the Database locally
+## Look at the file ConnectionStringSecretsSetup.md to hide your ConnectionString from the code
 
-### The Spreadsheet includes data that can be imported into the Core and Extension Models
-
-### The Word doc explains how the database works
