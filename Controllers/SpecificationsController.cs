@@ -1,242 +1,345 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Http.HttpResults; // Required for TypedResults
-using RegistryApi.DTOs;
+using Microsoft.AspNetCore.Http; // For StatusCodes
+using Microsoft.AspNetCore.Http.HttpResults; // Required for TypedResults and ForbidHttpResult
+using RegistryApi.DTOs; // Kept for other DTOs like PaginatedSpecificationHeaderResponse, etc.
 using RegistryApi.Services;
-using RegistryApi.Helpers;
-
+using System.Threading.Tasks; // Required for Task
+using Microsoft.Extensions.Logging; // Required for ILogger
+using HelpersPaginationParams = RegistryApi.Helpers.PaginationParams; // Alias for PaginationParams from Helpers namespace
 
 namespace RegistryApi.Controllers;
 
 [Route("api/specifications")]
 [ApiController]
-// Using primary constructor for dependency injection
-public class SpecificationsController(ISpecificationService specificationService, ILogger<SpecificationsController> logger) : ControllerBase
+public class SpecificationsController : ControllerBase
 {
+    private readonly ISpecificationService _specificationService;
+    private readonly ILogger<SpecificationsController> _logger;
+
+    // --- TEMPORARY: Simulated User Context for testing ---
+    // In Phase 7 (Authentication), this will be replaced by getting user from HttpContext.User
+    private CurrentUserContext GetSimulatedAdminContext() => new CurrentUserContext(UserId: 1, Role: "Admin", UserGroupId: null);
+    // Example simulated regular user (adjust ID and GroupID as needed for testing)
+    private CurrentUserContext GetSimulatedUserContext() => new CurrentUserContext(UserId: 2, Role: "User", UserGroupId: 1);
+    // ----------------------------------------------------
+
+    public SpecificationsController(ISpecificationService specificationService, ILogger<SpecificationsController> logger)
+    {
+        _specificationService = specificationService;
+        _logger = logger;
+    }
+
     // --- Specification Header Endpoints ---
 
-    // GET: api/specifications
     [HttpGet]
     [ProducesResponseType<PaginatedSpecificationHeaderResponse>(StatusCodes.Status200OK)]
-    public async Task<Ok<PaginatedSpecificationHeaderResponse>> GetSpecifications([FromQuery] PaginationParams paginationParams)
+    public async Task<Ok<PaginatedSpecificationHeaderResponse>> GetSpecifications([FromQuery] HelpersPaginationParams paginationParams)
     {
-        var result = await specificationService.GetSpecificationsAsync(paginationParams);
-        // Using TypedResults.Ok for strong typing and clarity
+        var result = await _specificationService.GetSpecificationsAsync(paginationParams);
         return TypedResults.Ok(result);
     }
 
-    // GET: api/specifications/5
-    [HttpGet("{id:int}")] // Route constraint for id
+    [HttpGet("{id:int}")]
     [ProducesResponseType<SpecificationIdentifyingInformationDetailDto>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<Results<Ok<SpecificationIdentifyingInformationDetailDto>, NotFound>> GetSpecification(
         int id,
-        [FromQuery] PaginationParams coreParams,
-        [FromQuery] PaginationParams extParams)
+        [FromQuery] HelpersPaginationParams coreParams,
+        [FromQuery] HelpersPaginationParams extParams)
     {
-        var specification = await specificationService.GetSpecificationByIdAsync(id, coreParams, extParams);
-
-        return specification == null
-            ? TypedResults.NotFound()
-            : TypedResults.Ok(specification);
+        var specification = await _specificationService.GetSpecificationByIdAsync(id, coreParams, extParams);
+        return specification == null ? TypedResults.NotFound() : TypedResults.Ok(specification);
     }
 
-    // POST: api/specifications
     [HttpPost]
     [ProducesResponseType<SpecificationIdentifyingInformationHeaderDto>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<Results<Created<SpecificationIdentifyingInformationHeaderDto>, BadRequest<string>>> PostSpecification(
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<Results<Created<SpecificationIdentifyingInformationHeaderDto>, BadRequest<string>, UnauthorizedHttpResult, ForbidHttpResult>> PostSpecification(
         [FromBody] SpecificationIdentifyingInformationCreateDto createDto)
     {
-        // ModelState validation happens automatically with [ApiController]
+        if (!ModelState.IsValid) return TypedResults.BadRequest("Invalid specification data.");
 
-        var createdSpecification = await specificationService.CreateSpecificationAsync(createDto);
+        // TEMPORARY: Simulate a logged-in user. Replace with actual user context in Phase 7.
+        // For testing, let's assume a regular user is creating this.
+        var currentUser = GetSimulatedUserContext();
+        // If testing Admin creation, use: var currentUser = GetSimulatedAdminContext();
 
-        if (createdSpecification == null)
+        var (status, createdSpecDto) = await _specificationService.CreateSpecificationAsync(createDto, currentUser);
+
+        return status switch
         {
-             return TypedResults.BadRequest("Could not create specification.");
-        }
-
-        // Return 201 Created with the object, location header is harder with TypedResults directly here
-        // Consider returning the object directly or using ActionResult for Location header if needed
-        return TypedResults.Created($"/api/specifications/{createdSpecification.IdentityID}", createdSpecification);
+            ServiceResult.Success => TypedResults.Created($"/api/specifications/{createdSpecDto!.IdentityID}", createdSpecDto),
+            ServiceResult.Unauthorized => TypedResults.Unauthorized(),
+            ServiceResult.Forbidden => TypedResults.Forbid(),
+            _ => TypedResults.BadRequest("Could not create specification.")
+        };
     }
 
-    // PUT: api/specifications/5
     [HttpPut("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)] // Handled by framework model binding/validation
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<Results<NoContent, NotFound>> PutSpecification(
+    public async Task<Results<NoContent, BadRequest<string>, NotFound, UnauthorizedHttpResult, ForbidHttpResult>> PutSpecification(
         int id,
         [FromBody] SpecificationIdentifyingInformationUpdateDto updateDto)
     {
-        var success = await specificationService.UpdateSpecificationAsync(id, updateDto);
+        if (!ModelState.IsValid) return TypedResults.BadRequest("Invalid specification update data.");
 
-        return success
-            ? TypedResults.NoContent()
-            : TypedResults.NotFound();
+        // TEMPORARY: Simulate. Admins can edit, users can edit if their group owns it.
+        var currentUser = GetSimulatedUserContext(); // Or GetSimulatedAdminContext() for testing admin path
+
+        var result = await _specificationService.UpdateSpecificationAsync(id, updateDto, currentUser);
+
+        return result switch
+        {
+            ServiceResult.Success => TypedResults.NoContent(),
+            ServiceResult.NotFound => TypedResults.NotFound(),
+            ServiceResult.Forbidden => TypedResults.Forbid(),
+            ServiceResult.Unauthorized => TypedResults.Unauthorized(),
+            _ => TypedResults.BadRequest("Could not update specification.")
+        };
     }
 
-    // DELETE: api/specifications/5
     [HttpDelete("{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
-    public async Task<Results<NoContent, NotFound, Conflict<string>>> DeleteSpecification(int id)
+    public async Task<Results<NoContent, NotFound, Conflict<string>, UnauthorizedHttpResult, ForbidHttpResult, BadRequest<string>>> DeleteSpecification(int id)
     {
-        var result = await specificationService.DeleteSpecificationAsync(id);
+        // TEMPORARY: Simulate.
+        var currentUser = GetSimulatedAdminContext(); // Deletion might often be an Admin task, or a user deleting their own.
+
+        var result = await _specificationService.DeleteSpecificationAsync(id, currentUser);
 
         return result switch
         {
             DeleteResult.Success => TypedResults.NoContent(),
             DeleteResult.NotFound => TypedResults.NotFound(),
             DeleteResult.Conflict => TypedResults.Conflict("Cannot delete specification because it has associated core or extension elements."),
-            _ => throw new InvalidOperationException("Unexpected delete result") // Should not happen
+            DeleteResult.Forbidden => TypedResults.Forbid(),
+            DeleteResult.Error => TypedResults.BadRequest("Could not delete specification due to an error."), // Map Error to BadRequest
+            _ => TypedResults.BadRequest("Could not delete specification.")
+        };
+    }
+
+    // PUT: api/specifications/{id}/assign-group/{groupId} (Admin Only)
+    [HttpPut("{id:int}/assign-group/{groupId:int?}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<Results<NoContent, BadRequest<string>, NotFound, UnauthorizedHttpResult, ForbidHttpResult>> AssignSpecificationToGroup(int id, int? groupId)
+    {
+        var currentUser = GetSimulatedAdminContext(); // This is an Admin action
+        var result = await _specificationService.AssignSpecificationToGroupAsync(id, groupId, currentUser);
+
+        return result switch
+        {
+            ServiceResult.Success => TypedResults.NoContent(),
+            ServiceResult.NotFound => TypedResults.NotFound(),
+            ServiceResult.Forbidden => TypedResults.Forbid(),
+            ServiceResult.Unauthorized => TypedResults.Unauthorized(),
+            _ => TypedResults.BadRequest("Could not assign specification to group.")
+        };
+    }
+
+    // PUT: api/specifications/{id}/remove-group (Admin Only)
+    [HttpPut("{id:int}/remove-group")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<Results<NoContent, NotFound, UnauthorizedHttpResult, ForbidHttpResult, BadRequest<string>>> RemoveSpecificationFromGroup(int id)
+    {
+        var currentUser = GetSimulatedAdminContext(); // This is an Admin action
+        var result = await _specificationService.AssignSpecificationToGroupAsync(id, null, currentUser); // Assign to null group
+
+        return result switch
+        {
+            ServiceResult.Success => TypedResults.NoContent(),
+            ServiceResult.NotFound => TypedResults.NotFound(),
+            ServiceResult.Forbidden => TypedResults.Forbid(),
+            ServiceResult.Unauthorized => TypedResults.Unauthorized(),
+            _ => TypedResults.BadRequest("Could not remove specification from group.")
         };
     }
 
 
     // --- Specification Core Element Endpoints ---
 
-    // GET: api/specifications/5/coreElements
     [HttpGet("{specificationId:int}/coreElements")]
     [ProducesResponseType<PaginatedSpecificationCoreResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<Results<Ok<PaginatedSpecificationCoreResponse>, NotFound>> GetSpecificationCoreElements(
         int specificationId,
-        [FromQuery] PaginationParams paginationParams)
+        [FromQuery] HelpersPaginationParams paginationParams)
     {
-        var result = await specificationService.GetSpecificationCoresAsync(specificationId, paginationParams);
-        return result == null
-            ? TypedResults.NotFound() // Specification itself not found
-            : TypedResults.Ok(result);
+        var result = await _specificationService.GetSpecificationCoresAsync(specificationId, paginationParams);
+        return result == null ? TypedResults.NotFound() : TypedResults.Ok(result);
     }
 
-    // POST: api/specifications/5/coreElements
     [HttpPost("{specificationId:int}/coreElements")]
-    [ProducesResponseType<RegistryApi.DTOs. SpecificationCoreDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType<SpecificationCoreDto>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<Results<Created<SpecificationCoreDto>, NotFound, BadRequest<string>>> PostSpecificationCoreElement(
+    public async Task<Results<Created<SpecificationCoreDto>, NotFound, BadRequest<string>, UnauthorizedHttpResult, ForbidHttpResult>> PostSpecificationCoreElement(
         int specificationId,
         [FromBody] SpecificationCoreCreateDto createDto)
     {
-         var (status, dto) = await specificationService.AddCoreElementAsync(specificationId, createDto);
+        if (!ModelState.IsValid) return TypedResults.BadRequest("Invalid core element data.");
+        var currentUser = GetSimulatedUserContext();
+        var (status, dto) = await _specificationService.AddCoreElementAsync(specificationId, createDto, currentUser);
 
-         return status switch
-         {
-             ServiceResult.Success => TypedResults.Created($"/api/specifications/{specificationId}/coreElements/{dto!.EntityID}", dto), // Assuming GetById exists
-             ServiceResult.NotFound => TypedResults.NotFound(), // Parent spec not found
-             ServiceResult.RefNotFound => TypedResults.BadRequest("Referenced Core Invoice Model element not found."),
-             _ => TypedResults.BadRequest("Failed to add core element.")
-         };
+        return status switch
+        {
+            ServiceResult.Success => TypedResults.Created($"/api/specifications/{specificationId}/coreElements/{dto!.EntityID}", dto),
+            ServiceResult.NotFound => TypedResults.NotFound(),
+            ServiceResult.RefNotFound => TypedResults.BadRequest("Referenced Core Invoice Model element not found."),
+            ServiceResult.Forbidden => TypedResults.Forbid(),
+            ServiceResult.Unauthorized => TypedResults.Unauthorized(),
+            _ => TypedResults.BadRequest("Failed to add core element.")
+        };
     }
 
-
-    // PUT: api/specifications/5/coreElements/10
     [HttpPut("{specificationId:int}/coreElements/{coreElementId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<Results<NoContent, NotFound, BadRequest<string>>> PutSpecificationCoreElement(
+    public async Task<Results<NoContent, NotFound, BadRequest<string>, UnauthorizedHttpResult, ForbidHttpResult>> PutSpecificationCoreElement(
         int specificationId,
         int coreElementId,
         [FromBody] SpecificationCoreUpdateDto updateDto)
     {
-         var result = await specificationService.UpdateCoreElementAsync(specificationId, coreElementId, updateDto);
+        if (!ModelState.IsValid) return TypedResults.BadRequest("Invalid core element update data.");
+        var currentUser = GetSimulatedUserContext();
+        var result = await _specificationService.UpdateCoreElementAsync(specificationId, coreElementId, updateDto, currentUser);
 
-         return result switch
-         {
-             ServiceResult.Success => TypedResults.NoContent(),
-             ServiceResult.NotFound => TypedResults.NotFound(), // Core element within spec not found
-             ServiceResult.RefNotFound => TypedResults.BadRequest("Referenced Core Invoice Model element not found."),
-             _ => TypedResults.BadRequest("Failed to update core element.")
-         };
+        return result switch
+        {
+            ServiceResult.Success => TypedResults.NoContent(),
+            ServiceResult.NotFound => TypedResults.NotFound(),
+            ServiceResult.RefNotFound => TypedResults.BadRequest("Referenced Core Invoice Model element not found."),
+            ServiceResult.Forbidden => TypedResults.Forbid(),
+            ServiceResult.Unauthorized => TypedResults.Unauthorized(),
+            _ => TypedResults.BadRequest("Failed to update core element.")
+        };
     }
 
-    // DELETE: api/specifications/5/coreElements/10
     [HttpDelete("{specificationId:int}/coreElements/{coreElementId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<Results<NoContent, NotFound>> DeleteSpecificationCoreElement(
+    public async Task<Results<NoContent, NotFound, UnauthorizedHttpResult, ForbidHttpResult, BadRequest<string>>> DeleteSpecificationCoreElement(
         int specificationId,
         int coreElementId)
     {
-         var result = await specificationService.DeleteCoreElementAsync(specificationId, coreElementId);
-         return result == ServiceResult.Success
-            ? TypedResults.NoContent()
-            : TypedResults.NotFound();
+        var currentUser = GetSimulatedUserContext();
+        var result = await _specificationService.DeleteCoreElementAsync(specificationId, coreElementId, currentUser);
+        return result switch
+        {
+            ServiceResult.Success => TypedResults.NoContent(),
+            ServiceResult.NotFound => TypedResults.NotFound(),
+            ServiceResult.Forbidden => TypedResults.Forbid(),
+            ServiceResult.Unauthorized => TypedResults.Unauthorized(),
+            _ => TypedResults.BadRequest("Could not delete core element.")
+        };
     }
 
 
     // --- Specification Extension Element Endpoints ---
 
-    // GET: api/specifications/5/extensionElements
     [HttpGet("{specificationId:int}/extensionElements")]
     [ProducesResponseType<PaginatedSpecificationExtensionResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-     public async Task<Results<Ok<PaginatedSpecificationExtensionResponse>, NotFound>> GetSpecificationExtensionElements(
-        int specificationId,
-        [FromQuery] PaginationParams paginationParams)
+    public async Task<Results<Ok<PaginatedSpecificationExtensionResponse>, NotFound>> GetSpecificationExtensionElements(
+       int specificationId,
+       [FromQuery] HelpersPaginationParams paginationParams)
     {
-        var result = await specificationService.GetSpecificationExtensionsAsync(specificationId, paginationParams);
-        return result == null
-            ? TypedResults.NotFound() // Specification itself not found
-            : TypedResults.Ok(result);
+        var result = await _specificationService.GetSpecificationExtensionsAsync(specificationId, paginationParams);
+        return result == null ? TypedResults.NotFound() : TypedResults.Ok(result);
     }
 
-    // POST: api/specifications/5/extensionElements
     [HttpPost("{specificationId:int}/extensionElements")]
     [ProducesResponseType<SpecificationExtensionComponentDto>(StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-     public async Task<Results<Created<SpecificationExtensionComponentDto>, NotFound, BadRequest<string>>> PostSpecificationExtensionElement(
-        int specificationId,
-        [FromBody] SpecificationExtensionComponentCreateDto createDto)
+    public async Task<Results<Created<SpecificationExtensionComponentDto>, NotFound, BadRequest<string>, UnauthorizedHttpResult, ForbidHttpResult>> PostSpecificationExtensionElement(
+       int specificationId,
+       [FromBody] SpecificationExtensionComponentCreateDto createDto)
     {
-         var (status, dto) = await specificationService.AddExtensionElementAsync(specificationId, createDto);
+        if (!ModelState.IsValid) return TypedResults.BadRequest("Invalid extension element data.");
+        var currentUser = GetSimulatedUserContext();
+        var (status, dto) = await _specificationService.AddExtensionElementAsync(specificationId, createDto, currentUser);
 
-         return status switch
-         {
-             ServiceResult.Success => TypedResults.Created($"/api/specifications/{specificationId}/extensionElements/{dto!.EntityID}", dto), // Assuming GetById exists
-             ServiceResult.NotFound => TypedResults.NotFound(), // Parent spec not found
-             ServiceResult.RefNotFound => TypedResults.BadRequest("Referenced Extension Component element not found."),
-             _ => TypedResults.BadRequest("Failed to add extension element.")
-         };
+        return status switch
+        {
+            ServiceResult.Success => TypedResults.Created($"/api/specifications/{specificationId}/extensionElements/{dto!.EntityID}", dto),
+            ServiceResult.NotFound => TypedResults.NotFound(),
+            ServiceResult.RefNotFound => TypedResults.BadRequest("Referenced Extension Component element not found."),
+            ServiceResult.Forbidden => TypedResults.Forbid(),
+            ServiceResult.Unauthorized => TypedResults.Unauthorized(),
+            _ => TypedResults.BadRequest("Failed to add extension element.")
+        };
     }
 
-    // PUT: api/specifications/5/extensionElements/12
     [HttpPut("{specificationId:int}/extensionElements/{extensionElementId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<Results<NoContent, NotFound, BadRequest<string>>> PutSpecificationExtensionElement(
-        int specificationId,
-        int extensionElementId,
-        [FromBody] SpecificationExtensionComponentUpdateDto updateDto)
+    public async Task<Results<NoContent, NotFound, BadRequest<string>, UnauthorizedHttpResult, ForbidHttpResult>> PutSpecificationExtensionElement(
+       int specificationId,
+       int extensionElementId,
+       [FromBody] SpecificationExtensionComponentUpdateDto updateDto)
     {
-         var result = await specificationService.UpdateExtensionElementAsync(specificationId, extensionElementId, updateDto);
+        if (!ModelState.IsValid) return TypedResults.BadRequest("Invalid extension element update data.");
+        var currentUser = GetSimulatedUserContext();
+        var result = await _specificationService.UpdateExtensionElementAsync(specificationId, extensionElementId, updateDto, currentUser);
 
-         return result switch
-         {
-             ServiceResult.Success => TypedResults.NoContent(),
-             ServiceResult.NotFound => TypedResults.NotFound(), // Extension element within spec not found
-             ServiceResult.RefNotFound => TypedResults.BadRequest("Referenced Extension Component element not found."),
-             _ => TypedResults.BadRequest("Failed to update extension element.")
-         };
+        return result switch
+        {
+            ServiceResult.Success => TypedResults.NoContent(),
+            ServiceResult.NotFound => TypedResults.NotFound(),
+            ServiceResult.RefNotFound => TypedResults.BadRequest("Referenced Extension Component element not found."),
+            ServiceResult.Forbidden => TypedResults.Forbid(),
+            ServiceResult.Unauthorized => TypedResults.Unauthorized(),
+            _ => TypedResults.BadRequest("Failed to update extension element.")
+        };
     }
 
-    // DELETE: api/specifications/5/extensionElements/12
     [HttpDelete("{specificationId:int}/extensionElements/{extensionElementId:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-     public async Task<Results<NoContent, NotFound>> DeleteSpecificationExtensionElement(
-        int specificationId,
-        int extensionElementId)
+    public async Task<Results<NoContent, NotFound, UnauthorizedHttpResult, ForbidHttpResult, BadRequest<string>>> DeleteSpecificationExtensionElement(
+       int specificationId,
+       int extensionElementId)
     {
-         var result = await specificationService.DeleteExtensionElementAsync(specificationId, extensionElementId);
-         return result == ServiceResult.Success
-            ? TypedResults.NoContent()
-            : TypedResults.NotFound();
+        var currentUser = GetSimulatedUserContext();
+        var result = await _specificationService.DeleteExtensionElementAsync(specificationId, extensionElementId, currentUser);
+        return result switch
+        {
+            ServiceResult.Success => TypedResults.NoContent(),
+            ServiceResult.NotFound => TypedResults.NotFound(),
+            ServiceResult.Forbidden => TypedResults.Forbid(),
+            ServiceResult.Unauthorized => TypedResults.Unauthorized(),
+            _ => TypedResults.BadRequest("Could not delete extension element.")
+        };
     }
 }

@@ -3,17 +3,39 @@ using RegistryApi.DTOs;
 using RegistryApi.Models;
 using RegistryApi.Repositories;
 using RegistryApi.Helpers; // For PagedList
+using System.Threading.Tasks;
+using Microsoft.Extensions.Logging; // For logging
+using System; // For DateTime
+using System.Collections.Generic; // For List
 
 namespace RegistryApi.Services;
 
-// Using primary constructor for dependency injection
+// Define a simple context for the current user - this will be replaced by HttpContext.User later
+public record CurrentUserContext(int UserId, string Role, int? UserGroupId);
+
+
 public class SpecificationService(
     ISpecificationIdentifyingInformationRepository specInfoRepo,
     ISpecificationCoreRepository specCoreRepo,
     ISpecificationExtensionComponentRepository specExtRepo,
-    IMapper mapper // Inject AutoMapper
+    IMapper mapper,
+    ILogger<SpecificationService> logger // Inject Logger
     ) : ISpecificationService
 {
+    // --- Helper method for permission checks (basic version) ---
+    private async Task<bool> CanUserEditSpecification(int specificationId, CurrentUserContext? currentUser)
+    {
+        if (currentUser == null) return false; // No user context, no permission
+        if (currentUser.Role == "Admin") return true; // Admins can edit anything
+
+        var spec = await specInfoRepo.GetByIdAsync(specificationId);
+        if (spec == null) return false; // Specification not found
+
+        // Users can edit if their group owns the specification
+        return spec.UserGroupID.HasValue && spec.UserGroupID == currentUser.UserGroupId;
+    }
+
+
     // --- Specification Header Methods ---
 
     public async Task<PaginatedSpecificationHeaderResponse> GetSpecificationsAsync(PaginationParams paginationParams)
@@ -36,83 +58,187 @@ public class SpecificationService(
 
     public async Task<SpecificationIdentifyingInformationDetailDto?> GetSpecificationByIdAsync(int id, PaginationParams coreParams, PaginationParams extParams)
     {
-        var entity = await specInfoRepo.GetByIdAsync(id); // Just get the header first
-        if (entity == null) return null;
+        var entity = await specInfoRepo.GetByIdAsync(id);
+        if (entity == null)
+        {
+            logger.LogWarning("Specification with ID {Id} not found.", id);
+            return null;
+        }
 
-        // Map header info
-        // Note: AutoMapper needs configuration for mapping record types if not straightforward
-        var headerDto = mapper.Map<SpecificationIdentifyingInformationHeaderDto>(entity);
-
-        // Get paginated children separately
         var coreResponse = await GetSpecificationCoresAsync(id, coreParams);
         var extensionResponse = await GetSpecificationExtensionsAsync(id, extParams);
 
-        // Check if child fetches were successful (spec ID was valid)
-        if (coreResponse == null || extensionResponse == null)
+        // Ensure coreResponse and extensionResponse are not null, providing default empty responses if necessary
+        // This is important because the SpecificationIdentifyingInformationDetailDto constructor expects non-null Paginated...Response objects.
+        if (coreResponse == null)
         {
-             // Should not happen if entity was found, but defensive check
-             return null;
+            logger.LogWarning("Core elements for specification ID {Id} could not be retrieved, defaulting to empty.", id);
+            var defaultCoreMetadata = new PaginationMetadata(0, coreParams.PageSize, coreParams.PageNumber, 0, false, false);
+            coreResponse = new PaginatedSpecificationCoreResponse(defaultCoreMetadata, new List<SpecificationCoreDto>());
         }
 
-        // Combine into the detail DTO
-        return new SpecificationIdentifyingInformationDetailDto(
-            headerDto.IdentityID,
-            headerDto.SpecificationIdentifier,
-            headerDto.SpecificationName,
-            headerDto.Sector,
-            headerDto.SpecificationVersion,
-            headerDto.DateOfImplementation,
-            headerDto.Country,
-            entity.SubSector, // Map remaining fields from the entity
-            entity.Purpose,
-            entity.ContactInformation,
-            entity.GoverningEntity,
-            entity.CoreVersion,
-            entity.SpecificationSourceLink,
-            entity.IsCountrySpecification,
-            entity.UnderlyingSpecificationIdentifier,
-            entity.PreferredSyntax,
-            coreResponse,
-            extensionResponse
+        if (extensionResponse == null)
+        {
+            logger.LogWarning("Extension elements for specification ID {Id} could not be retrieved, defaulting to empty.", id);
+            var defaultExtMetadata = new PaginationMetadata(0, extParams.PageSize, extParams.PageNumber, 0, false, false);
+            extensionResponse = new PaginatedSpecificationExtensionResponse(defaultExtMetadata, new List<SpecificationExtensionComponentDto>());
+        }
+
+        // Manually construct the SpecificationIdentifyingInformationDetailDto
+        // This bypasses the AutoMapper issue for this specific complex DTO construction.
+        var detailDto = new SpecificationIdentifyingInformationDetailDto(
+            IdentityID: entity.IdentityID,
+            SpecificationIdentifier: entity.SpecificationIdentifier,
+            SpecificationName: entity.SpecificationName,
+            Sector: entity.Sector,
+            SpecificationVersion: entity.SpecificationVersion,
+            DateOfImplementation: entity.DateOfImplementation,
+            Country: entity.Country,
+            SubSector: entity.SubSector,
+            Purpose: entity.Purpose,
+            ContactInformation: entity.ContactInformation,
+            GoverningEntity: entity.GoverningEntity,
+            CoreVersion: entity.CoreVersion,
+            SpecificationSourceLink: entity.SpecificationSourceLink,
+            IsCountrySpecification: entity.IsCountrySpecification,
+            UnderlyingSpecificationIdentifier: entity.UnderlyingSpecificationIdentifier,
+            PreferredSyntax: entity.PreferredSyntax,
+            CreatedDate: entity.CreatedDate,
+            ModifiedDate: entity.ModifiedDate,
+            SpecificationCores: coreResponse, // Assign the fetched PaginatedSpecificationCoreResponse
+            SpecificationExtensionComponents: extensionResponse // Assign the fetched PaginatedSpecificationExtensionResponse
         );
+
+        return detailDto;
     }
 
-    public async Task<SpecificationIdentifyingInformationHeaderDto?> CreateSpecificationAsync(SpecificationIdentifyingInformationCreateDto createDto)
+    // Modified to accept CurrentUserContext (simulated for now)
+    public async Task<(ServiceResult Status, SpecificationIdentifyingInformationHeaderDto? Dto)> CreateSpecificationAsync(
+        SpecificationIdentifyingInformationCreateDto createDto,
+        CurrentUserContext? currentUser) // Simulate current user
     {
+        if (currentUser == null)
+        {
+            logger.LogWarning("Attempt to create specification without user context.");
+            return (ServiceResult.Unauthorized, null); // Or BadRequest
+        }
+
         var entity = mapper.Map<SpecificationIdentifyingInformation>(createDto);
+
+        entity.CreatedDate = DateTime.UtcNow;
+        entity.ModifiedDate = DateTime.UtcNow;
+
+        // Assign UserGroupID based on current user, as per plan
+        if (currentUser.Role == "User")
+        {
+            if (!currentUser.UserGroupId.HasValue)
+            {
+                logger.LogWarning("User {UserId} attempted to create specification but has no UserGroupID.", currentUser.UserId);
+                return (ServiceResult.Forbidden, null); // User must belong to a group to create specs
+            }
+            entity.UserGroupID = currentUser.UserGroupId;
+        }
+        else if (currentUser.Role == "Admin")
+        {
+            entity.UserGroupID = null;
+        }
+        else
+        {
+            logger.LogError("Unknown role {Role} for user {UserId} attempting to create specification.", currentUser.Role, currentUser.UserId);
+            return (ServiceResult.Unauthorized, null);
+        }
+
         await specInfoRepo.AddAsync(entity);
-        await specInfoRepo.SaveChangesAsync();
-        return mapper.Map<SpecificationIdentifyingInformationHeaderDto>(entity);
+        if (!await specInfoRepo.SaveChangesAsync())
+        {
+            logger.LogError("Failed to save new specification.");
+            return (ServiceResult.BadRequest, null);
+        }
+        return (ServiceResult.Success, mapper.Map<SpecificationIdentifyingInformationHeaderDto>(entity));
     }
 
-    public async Task<bool> UpdateSpecificationAsync(int id, SpecificationIdentifyingInformationUpdateDto updateDto)
+    // Modified to accept CurrentUserContext
+    public async Task<ServiceResult> UpdateSpecificationAsync(
+        int id,
+        SpecificationIdentifyingInformationUpdateDto updateDto,
+        CurrentUserContext? currentUser) // Simulate current user
     {
         var entity = await specInfoRepo.GetByIdAsync(id);
-        if (entity == null) return false;
+        if (entity == null) return ServiceResult.NotFound;
 
-        mapper.Map(updateDto, entity); // Map updates onto the existing entity
+        if (!await CanUserEditSpecification(id, currentUser))
+        {
+            logger.LogWarning("User {UserId} (Role: {UserRole}, Group: {UserGroupId}) attempted to update specification {SpecificationId} without permission.",
+                currentUser?.UserId, currentUser?.Role, currentUser?.UserGroupId, id);
+            return ServiceResult.Forbidden;
+        }
+
+        mapper.Map(updateDto, entity);
+        entity.ModifiedDate = DateTime.UtcNow;
+
         specInfoRepo.Update(entity);
-        return await specInfoRepo.SaveChangesAsync();
+        if (!await specInfoRepo.SaveChangesAsync())
+        {
+            logger.LogError("Failed to save updated specification {SpecificationId}.", id);
+            return ServiceResult.BadRequest;
+        }
+        return ServiceResult.Success;
     }
 
-    public async Task<DeleteResult> DeleteSpecificationAsync(int id)
+    // Modified to accept CurrentUserContext
+    public async Task<DeleteResult> DeleteSpecificationAsync(int id, CurrentUserContext? currentUser)
     {
-        // Check existence first
         var entity = await specInfoRepo.GetByIdAsync(id);
-         if (entity == null) return DeleteResult.NotFound;
+        if (entity == null) return DeleteResult.NotFound;
 
-        // Check for children
+        if (!await CanUserEditSpecification(id, currentUser))
+        {
+            logger.LogWarning("User {UserId} (Role: {UserRole}, Group: {UserGroupId}) attempted to delete specification {SpecificationId} without permission.",
+               currentUser?.UserId, currentUser?.Role, currentUser?.UserGroupId, id);
+            return DeleteResult.Forbidden;
+        }
+
         bool hasCore = await specInfoRepo.HasCoreElementsAsync(id);
         bool hasExt = await specInfoRepo.HasExtensionComponentsAsync(id);
 
         if (hasCore || hasExt)
         {
-            return DeleteResult.Conflict; // Indicate conflict (children exist)
+            return DeleteResult.Conflict;
         }
 
         specInfoRepo.Delete(entity);
-        bool deleted = await specInfoRepo.SaveChangesAsync();
-        return deleted ? DeleteResult.Success : DeleteResult.NotFound; // Or some other error
+        if (!await specInfoRepo.SaveChangesAsync())
+        {
+            logger.LogError("Failed to delete specification {SpecificationId}.", id);
+            return DeleteResult.Error;
+        }
+        return DeleteResult.Success;
+    }
+
+    // New method for Admin to assign/change group
+    public async Task<ServiceResult> AssignSpecificationToGroupAsync(int specificationId, int? userGroupId, CurrentUserContext? currentUser)
+    {
+        if (currentUser == null || currentUser.Role != "Admin")
+        {
+            return ServiceResult.Forbidden;
+        }
+
+        var spec = await specInfoRepo.GetByIdAsync(specificationId);
+        if (spec == null)
+        {
+            return ServiceResult.NotFound;
+        }
+
+        spec.UserGroupID = userGroupId;
+        spec.ModifiedDate = DateTime.UtcNow;
+        specInfoRepo.Update(spec);
+
+        if (!await specInfoRepo.SaveChangesAsync())
+        {
+            logger.LogError("Admin {AdminId} failed to assign specification {SpecificationId} to group {UserGroupId}.", currentUser.UserId, specificationId, userGroupId);
+            return ServiceResult.BadRequest;
+        }
+        return ServiceResult.Success;
     }
 
 
@@ -120,130 +246,123 @@ public class SpecificationService(
 
     public async Task<PaginatedSpecificationCoreResponse?> GetSpecificationCoresAsync(int specificationId, PaginationParams paginationParams)
     {
-         // Check if parent exists first for better error handling upstream
-         if (!await specInfoRepo.ExistsAsync(specificationId)) return null;
-
-         var pagedEntities = await specCoreRepo.GetBySpecificationIdPaginatedAsync(specificationId, paginationParams);
-         var dtos = mapper.Map<List<SpecificationCoreDto>>(pagedEntities.Items);
-         return new PaginatedSpecificationCoreResponse
-         (
-             Metadata: new PaginationMetadata(
-                 pagedEntities.TotalCount,
-                 pagedEntities.PageSize,
-                 pagedEntities.PageNumber,
-                 pagedEntities.TotalPages,
-                 pagedEntities.HasNextPage,
-                 pagedEntities.HasPreviousPage
-             ),
-             Items: dtos
-         );
+        if (!await specInfoRepo.ExistsAsync(specificationId)) return null;
+        var pagedEntities = await specCoreRepo.GetBySpecificationIdPaginatedAsync(specificationId, paginationParams);
+        var dtos = mapper.Map<List<SpecificationCoreDto>>(pagedEntities.Items);
+        return new PaginatedSpecificationCoreResponse(
+            new PaginationMetadata(pagedEntities.TotalCount, pagedEntities.PageSize, pagedEntities.PageNumber, pagedEntities.TotalPages, pagedEntities.HasNextPage, pagedEntities.HasPreviousPage),
+            dtos
+        );
     }
 
     public async Task<SpecificationCoreDto?> GetSpecificationCoreByIdAsync(int specificationId, int coreElementId)
     {
-         var entity = await specCoreRepo.GetByIdAndSpecificationIdAsync(coreElementId, specificationId);
-         return mapper.Map<SpecificationCoreDto>(entity);
+        var entity = await specCoreRepo.GetByIdAndSpecificationIdAsync(coreElementId, specificationId);
+        return mapper.Map<SpecificationCoreDto>(entity);
     }
 
-
-    public async Task<(ServiceResult Status, SpecificationCoreDto? Dto)> AddCoreElementAsync(int specificationId, SpecificationCoreCreateDto createDto)
+    public async Task<(ServiceResult Status, SpecificationCoreDto? Dto)> AddCoreElementAsync(int specificationId, SpecificationCoreCreateDto createDto, CurrentUserContext? currentUser)
     {
-        if (!await specInfoRepo.ExistsAsync(specificationId))
-            return (ServiceResult.NotFound, null); // Parent Spec not found
-
-        if (!await specCoreRepo.CoreInvoiceModelExistsAsync(createDto.BusinessTermID))
-            return (ServiceResult.RefNotFound, null); // Referenced Core Model element not found
+        if (!await CanUserEditSpecification(specificationId, currentUser)) return (ServiceResult.Forbidden, null);
+        if (!await specInfoRepo.ExistsAsync(specificationId)) return (ServiceResult.NotFound, null);
+        if (!await specCoreRepo.CoreInvoiceModelExistsAsync(createDto.BusinessTermID)) return (ServiceResult.RefNotFound, null);
 
         var entity = mapper.Map<SpecificationCore>(createDto);
-        entity.IdentityID = specificationId; // Set the foreign key
-
+        entity.IdentityID = specificationId;
         await specCoreRepo.AddAsync(entity);
-        bool saved = await specCoreRepo.SaveChangesAsync();
 
-        return saved
-            ? (ServiceResult.Success, mapper.Map<SpecificationCoreDto>(entity))
-            : (ServiceResult.BadRequest, null); // Indicate save failure
+        var parentSpec = await specInfoRepo.GetByIdAsync(specificationId);
+        if (parentSpec != null)
+        {
+            parentSpec.ModifiedDate = DateTime.UtcNow;
+            specInfoRepo.Update(parentSpec);
+        }
+
+        bool saved = await specCoreRepo.SaveChangesAsync();
+        return saved ? (ServiceResult.Success, mapper.Map<SpecificationCoreDto>(entity)) : (ServiceResult.BadRequest, null);
     }
 
-    public async Task<ServiceResult> UpdateCoreElementAsync(int specificationId, int coreElementId, SpecificationCoreUpdateDto updateDto)
+    public async Task<ServiceResult> UpdateCoreElementAsync(int specificationId, int coreElementId, SpecificationCoreUpdateDto updateDto, CurrentUserContext? currentUser)
     {
+        if (!await CanUserEditSpecification(specificationId, currentUser)) return ServiceResult.Forbidden;
         var entity = await specCoreRepo.GetByIdAndSpecificationIdAsync(coreElementId, specificationId);
         if (entity == null) return ServiceResult.NotFound;
-
-        // Optional: Validate new BusinessTermID if it's changeable
-        if (updateDto.BusinessTermID != entity.BusinessTermID && !await specCoreRepo.CoreInvoiceModelExistsAsync(updateDto.BusinessTermID))
-            return ServiceResult.RefNotFound;
+        if (updateDto.BusinessTermID != entity.BusinessTermID && !await specCoreRepo.CoreInvoiceModelExistsAsync(updateDto.BusinessTermID)) return ServiceResult.RefNotFound;
 
         mapper.Map(updateDto, entity);
         specCoreRepo.Update(entity);
+
+        var parentSpec = await specInfoRepo.GetByIdAsync(specificationId);
+        if (parentSpec != null)
+        {
+            parentSpec.ModifiedDate = DateTime.UtcNow;
+            specInfoRepo.Update(parentSpec);
+        }
         bool saved = await specCoreRepo.SaveChangesAsync();
-        return saved ? ServiceResult.Success : ServiceResult.BadRequest; // Indicate save failure
+        return saved ? ServiceResult.Success : ServiceResult.BadRequest;
     }
 
-    public async Task<ServiceResult> DeleteCoreElementAsync(int specificationId, int coreElementId)
+    public async Task<ServiceResult> DeleteCoreElementAsync(int specificationId, int coreElementId, CurrentUserContext? currentUser)
     {
+        if (!await CanUserEditSpecification(specificationId, currentUser)) return ServiceResult.Forbidden;
         var entity = await specCoreRepo.GetByIdAndSpecificationIdAsync(coreElementId, specificationId);
         if (entity == null) return ServiceResult.NotFound;
 
         specCoreRepo.Delete(entity);
+        var parentSpec = await specInfoRepo.GetByIdAsync(specificationId);
+        if (parentSpec != null)
+        {
+            parentSpec.ModifiedDate = DateTime.UtcNow;
+            specInfoRepo.Update(parentSpec);
+        }
         bool saved = await specCoreRepo.SaveChangesAsync();
-         return saved ? ServiceResult.Success : ServiceResult.BadRequest; // Indicate save failure
+        return saved ? ServiceResult.Success : ServiceResult.BadRequest;
     }
 
     // --- Specification Extension Methods ---
 
     public async Task<PaginatedSpecificationExtensionResponse?> GetSpecificationExtensionsAsync(int specificationId, PaginationParams paginationParams)
     {
-         if (!await specInfoRepo.ExistsAsync(specificationId)) return null;
-
+        if (!await specInfoRepo.ExistsAsync(specificationId)) return null;
         var pagedEntities = await specExtRepo.GetBySpecificationIdPaginatedAsync(specificationId, paginationParams);
         var dtos = mapper.Map<List<SpecificationExtensionComponentDto>>(pagedEntities.Items);
-        return new PaginatedSpecificationExtensionResponse
-        (
-            Metadata: new PaginationMetadata(
-                pagedEntities.TotalCount,
-                pagedEntities.PageSize,
-                pagedEntities.PageNumber,
-                pagedEntities.TotalPages,
-                pagedEntities.HasNextPage,
-                pagedEntities.HasPreviousPage
-            ),
-            Items: dtos
+        return new PaginatedSpecificationExtensionResponse(
+            new PaginationMetadata(pagedEntities.TotalCount, pagedEntities.PageSize, pagedEntities.PageNumber, pagedEntities.TotalPages, pagedEntities.HasNextPage, pagedEntities.HasPreviousPage),
+            dtos
         );
     }
 
-     public async Task<SpecificationExtensionComponentDto?> GetSpecificationExtensionByIdAsync(int specificationId, int extensionElementId)
+    public async Task<SpecificationExtensionComponentDto?> GetSpecificationExtensionByIdAsync(int specificationId, int extensionElementId)
     {
-         var entity = await specExtRepo.GetByIdAndSpecificationIdAsync(extensionElementId, specificationId);
-         return mapper.Map<SpecificationExtensionComponentDto>(entity);
+        var entity = await specExtRepo.GetByIdAndSpecificationIdAsync(extensionElementId, specificationId);
+        return mapper.Map<SpecificationExtensionComponentDto>(entity);
     }
 
-
-    public async Task<(ServiceResult Status, SpecificationExtensionComponentDto? Dto)> AddExtensionElementAsync(int specificationId, SpecificationExtensionComponentCreateDto createDto)
+    public async Task<(ServiceResult Status, SpecificationExtensionComponentDto? Dto)> AddExtensionElementAsync(int specificationId, SpecificationExtensionComponentCreateDto createDto, CurrentUserContext? currentUser)
     {
-        if (!await specInfoRepo.ExistsAsync(specificationId))
-            return (ServiceResult.NotFound, null);
-
-        if (!await specExtRepo.ExtensionElementExistsAsync(createDto.ExtensionComponentID, createDto.BusinessTermID))
-            return (ServiceResult.RefNotFound, null); // Ref Element not found
+        if (!await CanUserEditSpecification(specificationId, currentUser)) return (ServiceResult.Forbidden, null);
+        if (!await specInfoRepo.ExistsAsync(specificationId)) return (ServiceResult.NotFound, null);
+        if (!await specExtRepo.ExtensionElementExistsAsync(createDto.ExtensionComponentID, createDto.BusinessTermID)) return (ServiceResult.RefNotFound, null);
 
         var entity = mapper.Map<SpecificationExtensionComponent>(createDto);
         entity.IdentityID = specificationId;
-
         await specExtRepo.AddAsync(entity);
-        bool saved = await specExtRepo.SaveChangesAsync();
 
-        return saved
-            ? (ServiceResult.Success, mapper.Map<SpecificationExtensionComponentDto>(entity))
-            : (ServiceResult.BadRequest, null);
+        var parentSpec = await specInfoRepo.GetByIdAsync(specificationId);
+        if (parentSpec != null)
+        {
+            parentSpec.ModifiedDate = DateTime.UtcNow;
+            specInfoRepo.Update(parentSpec);
+        }
+        bool saved = await specExtRepo.SaveChangesAsync();
+        return saved ? (ServiceResult.Success, mapper.Map<SpecificationExtensionComponentDto>(entity)) : (ServiceResult.BadRequest, null);
     }
 
-    public async Task<ServiceResult> UpdateExtensionElementAsync(int specificationId, int extensionElementId, SpecificationExtensionComponentUpdateDto updateDto)
+    public async Task<ServiceResult> UpdateExtensionElementAsync(int specificationId, int extensionElementId, SpecificationExtensionComponentUpdateDto updateDto, CurrentUserContext? currentUser)
     {
+        if (!await CanUserEditSpecification(specificationId, currentUser)) return ServiceResult.Forbidden;
         var entity = await specExtRepo.GetByIdAndSpecificationIdAsync(extensionElementId, specificationId);
         if (entity == null) return ServiceResult.NotFound;
-
-        // Optional: Validate new composite key if changeable
         if ((updateDto.ExtensionComponentID != entity.ExtensionComponentID || updateDto.BusinessTermID != entity.BusinessTermID) &&
             !await specExtRepo.ExtensionElementExistsAsync(updateDto.ExtensionComponentID, updateDto.BusinessTermID))
         {
@@ -252,16 +371,29 @@ public class SpecificationService(
 
         mapper.Map(updateDto, entity);
         specExtRepo.Update(entity);
+        var parentSpec = await specInfoRepo.GetByIdAsync(specificationId);
+        if (parentSpec != null)
+        {
+            parentSpec.ModifiedDate = DateTime.UtcNow;
+            specInfoRepo.Update(parentSpec);
+        }
         bool saved = await specExtRepo.SaveChangesAsync();
         return saved ? ServiceResult.Success : ServiceResult.BadRequest;
     }
 
-    public async Task<ServiceResult> DeleteExtensionElementAsync(int specificationId, int extensionElementId)
+    public async Task<ServiceResult> DeleteExtensionElementAsync(int specificationId, int extensionElementId, CurrentUserContext? currentUser)
     {
+        if (!await CanUserEditSpecification(specificationId, currentUser)) return ServiceResult.Forbidden;
         var entity = await specExtRepo.GetByIdAndSpecificationIdAsync(extensionElementId, specificationId);
         if (entity == null) return ServiceResult.NotFound;
 
         specExtRepo.Delete(entity);
+        var parentSpec = await specInfoRepo.GetByIdAsync(specificationId);
+        if (parentSpec != null)
+        {
+            parentSpec.ModifiedDate = DateTime.UtcNow;
+            specInfoRepo.Update(parentSpec);
+        }
         bool saved = await specExtRepo.SaveChangesAsync();
         return saved ? ServiceResult.Success : ServiceResult.BadRequest;
     }

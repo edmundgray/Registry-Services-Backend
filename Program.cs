@@ -1,8 +1,9 @@
 // --- Start of Program.cs ---
 using Microsoft.EntityFrameworkCore;
-using RegistryApi.Data; // Adjust if your namespace differs
-using RegistryApi.Repositories; // Adjust if your namespace differs
-using RegistryApi.Services; // Adjust if your namespace differs
+using RegistryApi.Data;
+using RegistryApi.Repositories;
+using RegistryApi.Services; // Ensure this namespace is correct for your services
+using Microsoft.Extensions.Logging; // Required for ILogger
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,25 +11,30 @@ var builder = WebApplication.CreateBuilder(args);
 
 // 1. Configure DbContext
 var connectionString = builder.Configuration.GetConnectionString("RegistryDatabaseConnection");
-// Add robust null-checking for connection string
 ArgumentNullException.ThrowIfNullOrEmpty(connectionString, nameof(connectionString));
 builder.Services.AddDbContext<RegistryDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 // 2. Configure AutoMapper
-// Assumes SpecificationProfile is in the same assembly as Program.cs
-builder.Services.AddAutoMapper(typeof(Program));
+builder.Services.AddAutoMapper(typeof(Program)); // Assumes SpecificationProfile is in the same assembly
 
-// 3. Register Repositories and Services
+// 3. Register Repositories
 builder.Services.AddScoped<ISpecificationIdentifyingInformationRepository, SpecificationIdentifyingInformationRepository>();
 builder.Services.AddScoped<ISpecificationCoreRepository, SpecificationCoreRepository>();
 builder.Services.AddScoped<ISpecificationExtensionComponentRepository, SpecificationExtensionComponentRepository>();
-builder.Services.AddScoped<ISpecificationService, SpecificationService>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IUserGroupRepository, UserGroupRepository>();
 
-// 4. Add Controllers and API Explorer/Swagger
+// 4. Register Services
+builder.Services.AddScoped<ISpecificationService, SpecificationService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<IUserGroupService, UserGroupService>();
+builder.Services.AddScoped<IPasswordHasher, PasswordHasher>(); // Register the placeholder password hasher
+
+// 5. Add Controllers and API Explorer/Swagger
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(options => // Optional: Add Swagger info
+builder.Services.AddSwaggerGen(options =>
 {
     options.SwaggerDoc("v1", new Microsoft.OpenApi.Models.OpenApiInfo
     {
@@ -36,7 +42,12 @@ builder.Services.AddSwaggerGen(options => // Optional: Add Swagger info
         Title = "Registry API",
         Description = "API for managing data specifications"
     });
+    // Later, for JWT: Add security definitions for Swagger
 });
+
+// Add Logging
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
 
 
 // --- Build the application ---
@@ -46,23 +57,27 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(options => // Optional: Configure Swagger UI
+    app.UseSwaggerUI(options =>
     {
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "Registry API v1");
-        //options.RoutePrefix = string.Empty; // Serve Swagger UI at app root
+        
     });
-    // Use developer exception page for detailed errors in development
     app.UseDeveloperExceptionPage();
+}
+else
+{
+    // Add a more generic error handler for production
+    app.UseExceptionHandler("/error"); // Example, create an /error endpoint
+    app.UseHsts();
 }
 
 app.UseHttpsRedirection();
 
-// Add Authentication/Authorization middleware if needed here
+// Authentication & Authorization middleware will go here in Phase 7
 // app.UseAuthentication();
 // app.UseAuthorization();
 
-app.MapControllers(); // Maps attribute-routed controllers
+app.MapControllers();
 
 app.Run();
 // --- End of Program.cs ---
-

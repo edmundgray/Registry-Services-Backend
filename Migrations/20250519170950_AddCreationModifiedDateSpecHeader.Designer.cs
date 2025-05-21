@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using RegistryApi.Data;
 
@@ -11,9 +12,11 @@ using RegistryApi.Data;
 namespace RegistryServices.Migrations
 {
     [DbContext(typeof(RegistryDbContext))]
-    partial class RegistryDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250519170950_AddCreationModifiedDateSpecHeader")]
+    partial class AddCreationModifiedDateSpecHeader
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -286,107 +289,9 @@ namespace RegistryServices.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
-                    b.Property<int?>("UserGroupID")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("UserID")
-                        .HasColumnType("int");
-
                     b.HasKey("IdentityID");
 
-                    b.HasIndex("UserGroupID");
-
-                    b.HasIndex("UserID");
-
                     b.ToTable("SpecificationIdentifyingInformation");
-                });
-
-            modelBuilder.Entity("RegistryApi.Models.User", b =>
-                {
-                    b.Property<int>("UserID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserID"));
-
-                    b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.Property<string>("FirstName")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime?>("LastLoginDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("LastName")
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("PasswordHash")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Role")
-                        .IsRequired()
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<int?>("UserGroupID")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Username")
-                        .IsRequired()
-                        .HasMaxLength(256)
-                        .HasColumnType("nvarchar(256)");
-
-                    b.HasKey("UserID");
-
-                    b.HasIndex("Email")
-                        .IsUnique();
-
-                    b.HasIndex("UserGroupID");
-
-                    b.HasIndex("Username")
-                        .IsUnique();
-
-                    b.ToTable("Users", (string)null);
-                });
-
-            modelBuilder.Entity("RegistryApi.Models.UserGroup", b =>
-                {
-                    b.Property<int>("UserGroupID")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("UserGroupID"));
-
-                    b.Property<DateTime>("CreatedDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
-                    b.Property<string>("GroupName")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.HasKey("UserGroupID");
-
-                    b.HasIndex("GroupName")
-                        .IsUnique();
-
-                    b.ToTable("UserGroups", (string)null);
                 });
 
             modelBuilder.Entity("RegistryApi.Models.ExtensionComponentModelElement", b =>
@@ -439,30 +344,6 @@ namespace RegistryServices.Migrations
                     b.Navigation("SpecificationIdentifyingInformation");
                 });
 
-            modelBuilder.Entity("RegistryApi.Models.SpecificationIdentifyingInformation", b =>
-                {
-                    b.HasOne("RegistryApi.Models.UserGroup", "UserGroup")
-                        .WithMany("Specifications")
-                        .HasForeignKey("UserGroupID")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("RegistryApi.Models.User", null)
-                        .WithMany("CreatedSpecifications")
-                        .HasForeignKey("UserID");
-
-                    b.Navigation("UserGroup");
-                });
-
-            modelBuilder.Entity("RegistryApi.Models.User", b =>
-                {
-                    b.HasOne("RegistryApi.Models.UserGroup", "UserGroup")
-                        .WithMany("Users")
-                        .HasForeignKey("UserGroupID")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("UserGroup");
-                });
-
             modelBuilder.Entity("RegistryApi.Models.CoreInvoiceModel", b =>
                 {
                     b.Navigation("SpecificationCores");
@@ -483,18 +364,6 @@ namespace RegistryServices.Migrations
                     b.Navigation("SpecificationCores");
 
                     b.Navigation("SpecificationExtensionComponents");
-                });
-
-            modelBuilder.Entity("RegistryApi.Models.User", b =>
-                {
-                    b.Navigation("CreatedSpecifications");
-                });
-
-            modelBuilder.Entity("RegistryApi.Models.UserGroup", b =>
-                {
-                    b.Navigation("Specifications");
-
-                    b.Navigation("Users");
                 });
 #pragma warning restore 612, 618
         }

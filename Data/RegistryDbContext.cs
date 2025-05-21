@@ -16,53 +16,109 @@ public class RegistryDbContext(DbContextOptions<RegistryDbContext> options) : Db
     public DbSet<ExtensionComponentsModelHeader> ExtensionComponentsModelHeaders => Set<ExtensionComponentsModelHeader>();
     public DbSet<ExtensionComponentModelElement> ExtensionComponentModelElements => Set<ExtensionComponentModelElement>();
 
+    // New DbSets for User and UserGroup
+    public DbSet<User> Users => Set<User>();
+    public DbSet<UserGroup> UserGroups => Set<UserGroup>();
+
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
 
-        // --- Configure Composite Keys and Relationships ---
+        // --- Configure Composite Keys and Relationships for existing entities ---
 
-        // Unique constraint on ExtensionComponentModelElement (acts as Principal Key for the composite FK)
         modelBuilder.Entity<ExtensionComponentModelElement>()
             .HasIndex(e => new { e.ExtensionComponentID, e.BusinessTermID })
             .IsUnique()
-            .HasDatabaseName("UQ_ExtensionComponentModelElements_Component_BusinessTerm"); // Match SQL name
+            .HasDatabaseName("UQ_ExtensionComponentModelElements_Component_BusinessTerm");
 
-        // Composite foreign key from SpecificationExtensionComponent to ExtensionComponentModelElement
         modelBuilder.Entity<SpecificationExtensionComponent>()
             .HasOne(specExt => specExt.ExtensionComponentModelElement)
             .WithMany(elem => elem.SpecificationExtensionComponents)
-            .HasForeignKey(specExt => new { specExt.ExtensionComponentID, specExt.BusinessTermID }) // Dependent side FK properties
-            .HasPrincipalKey(elem => new { elem.ExtensionComponentID, elem.BusinessTermID }) // Principal side PK properties
-            .OnDelete(DeleteBehavior.Restrict); // Prevent deleting ExtensionComponentModelElement if used
+            .HasForeignKey(specExt => new { specExt.ExtensionComponentID, specExt.BusinessTermID })
+            .HasPrincipalKey(elem => new { elem.ExtensionComponentID, elem.BusinessTermID })
+            .OnDelete(DeleteBehavior.Restrict);
 
-         // FK from SpecificationCore to CoreInvoiceModel
         modelBuilder.Entity<SpecificationCore>()
             .HasOne(sc => sc.CoreInvoiceModel)
             .WithMany(cim => cim.SpecificationCores)
             .HasForeignKey(sc => sc.BusinessTermID)
-            .OnDelete(DeleteBehavior.Restrict); // Prevent deleting CoreInvoiceModel if used
+            .OnDelete(DeleteBehavior.Restrict);
 
-        // FK from SpecificationCore to SpecificationIdentifyingInformation
         modelBuilder.Entity<SpecificationCore>()
             .HasOne(sc => sc.SpecificationIdentifyingInformation)
             .WithMany(sii => sii.SpecificationCores)
             .HasForeignKey(sc => sc.IdentityID)
-            .OnDelete(DeleteBehavior.Cascade); // Deleting Spec Header deletes its Core items
+            .OnDelete(DeleteBehavior.Cascade);
 
-        // FK from SpecificationExtensionComponent to SpecificationIdentifyingInformation
         modelBuilder.Entity<SpecificationExtensionComponent>()
             .HasOne(sec => sec.SpecificationIdentifyingInformation)
             .WithMany(sii => sii.SpecificationExtensionComponents)
             .HasForeignKey(sec => sec.IdentityID)
-            .OnDelete(DeleteBehavior.Cascade); // Deleting Spec Header deletes its Extension items
+            .OnDelete(DeleteBehavior.Cascade);
 
-        // FK from ExtensionComponentModelElement to ExtensionComponentsModelHeader
         modelBuilder.Entity<ExtensionComponentModelElement>()
             .HasOne(ece => ece.ExtensionComponentsModelHeader)
             .WithMany(ech => ech.ExtensionComponentModelElements)
             .HasForeignKey(ece => ece.ExtensionComponentID)
-            .OnDelete(DeleteBehavior.Restrict); // Prevent deleting header if elements exist
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // --- Configure New User and UserGroup Entities and Relationships ---
+
+        // User Entity Configuration
+        modelBuilder.Entity<User>(entity =>
+        {
+            entity.ToTable("Users"); // Explicit table name
+            entity.HasKey(u => u.UserID);
+
+            entity.HasIndex(u => u.Username).IsUnique();
+            entity.Property(u => u.Username).IsRequired().HasMaxLength(256);
+
+            entity.HasIndex(u => u.Email).IsUnique();
+            entity.Property(u => u.Email).IsRequired().HasMaxLength(256);
+
+            entity.Property(u => u.PasswordHash).IsRequired();
+            entity.Property(u => u.Role).IsRequired().HasMaxLength(50);
+            entity.Property(u => u.IsActive).IsRequired();
+            entity.Property(u => u.CreatedDate).IsRequired();
+
+            // Relationship: User to UserGroup (One UserGroup can have many Users, a User belongs to one UserGroup)
+            entity.HasOne(u => u.UserGroup)
+                  .WithMany(g => g.Users) // Assumes UserGroup has an ICollection<User> Users
+                  .HasForeignKey(u => u.UserGroupID)
+                  .IsRequired(false) // UserGroupID is nullable in User model
+                  .OnDelete(DeleteBehavior.Restrict); // Prevent UserGroup deletion if Users are assigned
+        });
+
+        // UserGroup Entity Configuration
+        modelBuilder.Entity<UserGroup>(entity =>
+        {
+            entity.ToTable("UserGroups"); // Explicit table name
+            entity.HasKey(g => g.UserGroupID);
+
+            entity.HasIndex(g => g.GroupName).IsUnique();
+            entity.Property(g => g.GroupName).IsRequired().HasMaxLength(100);
+            entity.Property(g => g.CreatedDate).IsRequired();
+        });
+
+        // SpecificationIdentifyingInformation Entity Configuration (Relationship to UserGroup)
+        modelBuilder.Entity<SpecificationIdentifyingInformation>(entity =>
+        {
+            // Relationship: SpecificationIdentifyingInformation to UserGroup
+            // (One UserGroup can "own" many Specifications, a Specification is owned by one UserGroup)
+            entity.HasOne(s => s.UserGroup)
+                  .WithMany(g => g.Specifications) // Assumes UserGroup has an ICollection<SpecificationIdentifyingInformation> Specifications
+                  .HasForeignKey(s => s.UserGroupID)
+                  .IsRequired(false) // UserGroupID is nullable in SpecificationIdentifyingInformation
+                  .OnDelete(DeleteBehavior.SetNull); // If UserGroup is deleted, set UserGroupID in Spec to NULL
+        });
+
+        // If you decide to implement the CreatorUserID for the User.CreatedSpecifications navigation property:
+        // modelBuilder.Entity<SpecificationIdentifyingInformation>()
+        //    .HasOne(s => s.CreatorUser) // Assuming CreatorUser navigation property in SpecInfo
+        //    .WithMany(u => u.CreatedSpecifications) // In User model
+        //    .HasForeignKey(s => s.CreatorUserID) // Assuming CreatorUserID FK in SpecInfo
+        //    .IsRequired(false) // Or true, depending on requirements
+        //    .OnDelete(DeleteBehavior.SetNull); // Or Restrict
     }
 }
