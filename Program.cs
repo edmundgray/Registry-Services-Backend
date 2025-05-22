@@ -3,17 +3,36 @@ using Microsoft.EntityFrameworkCore;
 using RegistryApi.Data;
 using RegistryApi.Repositories;
 using RegistryApi.Services; // Ensure this namespace is correct for your services
-using Microsoft.Extensions.Logging; // Required for ILogger
+using Microsoft.Extensions.Logging;// Required for ILogger
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text; 
 
 var builder = WebApplication.CreateBuilder(args);
 
 // --- Service Configuration ---
 
-// 1. Configure DbContext
-var connectionString = builder.Configuration.GetConnectionString("RegistryDatabaseConnection");
-ArgumentNullException.ThrowIfNullOrEmpty(connectionString, nameof(connectionString));
-builder.Services.AddDbContext<RegistryDbContext>(options =>
-    options.UseSqlServer(connectionString));
+// 1. Configure DbContext (Conditionally)
+// Check if the environment is "Testing" (or any specific environment you use for tests)
+if (builder.Environment.IsEnvironment("Testing"))
+{
+    // For integration tests, DbContext will be configured by CustomWebApplicationFactory.
+    // No need to register SQL Server DbContext here.
+    // The CustomWebApplicationFactory will add the InMemory provider.
+    // You could log here if desired:
+    // builder.Logging.AddConsole().AddDebug(); // Example
+    // var logger = LoggerFactory.Create(logBuilder => logBuilder.AddConsole()).CreateLogger<Program>();
+    // logger.LogInformation("Running in Testing environment. Skipping SQL Server DbContext registration.");
+}
+else
+{
+    // Original DbContext configuration for Development, Production, etc.
+    var connectionString = builder.Configuration.GetConnectionString("RegistryDatabaseConnection");
+    ArgumentNullException.ThrowIfNullOrEmpty(connectionString, nameof(connectionString)); // This line was causing the issue in tests
+    builder.Services.AddDbContext<RegistryDbContext>(options =>
+        options.UseSqlServer(connectionString));
+}
+
 
 // 2. Configure AutoMapper
 builder.Services.AddAutoMapper(typeof(Program)); // Assumes SpecificationProfile is in the same assembly
@@ -31,6 +50,42 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IUserGroupService, UserGroupService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>(); // Register the placeholder password hasher
 
+
+// --- START: JWT Authentication Configuration ---
+var jwtSettings = builder.Configuration.GetSection("JwtSettings");
+var secretKey = jwtSettings["SecretKey"];
+
+if (string.IsNullOrEmpty(secretKey))
+{
+    // It's critical to have a secret key. Throw an exception if it's not found.
+    // This ensures the application doesn't start in an insecure state.
+    throw new InvalidOperationException("JWT SecretKey is not configured. Please set it in appsettings.json or user secrets.");
+}
+
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = jwtSettings["Issuer"],
+        ValidAudience = jwtSettings["Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey))
+    };
+});
+
+builder.Services.AddAuthorization(); // Add Authorization services
+// --- END: JWT Authentication Configuration ---
+
+
 // 5. Add Controllers and API Explorer/Swagger
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
@@ -42,7 +97,29 @@ builder.Services.AddSwaggerGen(options =>
         Title = "Registry API",
         Description = "API for managing data specifications"
     });
-    // Later, for JWT: Add security definitions for Swagger
+    // --- START: Add JWT Authentication to Swagger ---
+    options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "Please enter JWT with Bearer into field (e.g., Bearer {token})",
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    options.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement {
+    {
+        new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+        {
+            Reference = new Microsoft.OpenApi.Models.OpenApiReference
+            {
+                Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                Id = "Bearer"
+            }
+        },
+        new string[] {}
+    }});
+    // --- END: Add JWT Authentication to Swagger ---
 });
 
 // Add Logging
@@ -73,9 +150,11 @@ else
 
 app.UseHttpsRedirection();
 
-// Authentication & Authorization middleware will go here in Phase 7
-// app.UseAuthentication();
-// app.UseAuthorization();
+// --- START: Add Authentication and Authorization Middleware ---
+// IMPORTANT: UseAuthentication must come before UseAuthorization
+app.UseAuthentication();
+app.UseAuthorization();
+// --- END: Add Authentication and Authorization Middleware ---
 
 app.MapControllers();
 

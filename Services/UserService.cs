@@ -2,36 +2,111 @@
 using RegistryApi.DTOs;
 using RegistryApi.Models;
 using RegistryApi.Repositories;
-using RegistryApi.Helpers; // For PagedList
+using RegistryApi.Helpers;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Logging; // For logging
+using Microsoft.Extensions.Logging;
+// Add these using statements for JWT generation
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Text;
+using Microsoft.Extensions.Configuration; // For IConfiguration
+using Microsoft.IdentityModel.Tokens;
 
 namespace RegistryApi.Services
 {
     public class UserService : IUserService
     {
         private readonly IUserRepository _userRepository;
-        private readonly IUserGroupRepository _userGroupRepository; // For validating UserGroupID
+        private readonly IUserGroupRepository _userGroupRepository;
         private readonly IMapper _mapper;
         private readonly IPasswordHasher _passwordHasher;
         private readonly ILogger<UserService> _logger;
+        private readonly IConfiguration _configuration; // <-- Add IConfiguration
 
         public UserService(
             IUserRepository userRepository,
             IUserGroupRepository userGroupRepository,
             IMapper mapper,
             IPasswordHasher passwordHasher,
-            ILogger<UserService> logger)
+            ILogger<UserService> logger,
+            IConfiguration configuration) // <-- Inject IConfiguration
         {
             _userRepository = userRepository;
             _userGroupRepository = userGroupRepository;
             _mapper = mapper;
             _passwordHasher = passwordHasher;
             _logger = logger;
+            _configuration = configuration; // <-- Assign IConfiguration
         }
 
+        public async Task<(ServiceResult Status, UserTokenDto? TokenDto, string? ErrorMessage)> AuthenticateUserAsync(UserLoginDto loginDto)
+        {
+            var user = await _userRepository.GetByUsernameAsync(loginDto.Username);
+            if (user == null || !user.IsActive || !_passwordHasher.VerifyPassword(user.PasswordHash, loginDto.Password))
+            {
+                return (ServiceResult.Unauthorized, null, "Invalid username or password.");
+            }
+
+            await UpdateLastLoginDateAsync(user.UserID);
+
+            // --- JWT Generation ---
+            var jwtSettings = _configuration.GetSection("JwtSettings");
+            var secretKey = jwtSettings["SecretKey"];
+            if (string.IsNullOrEmpty(secretKey))
+            {
+                _logger.LogError("JWT SecretKey is not configured in appsettings or user secrets.");
+                return (ServiceResult.BadRequest, null, "Authentication system configuration error.");
+            }
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.UserID.ToString()), // UserID
+                new Claim(ClaimTypes.Name, user.Username),                    // Username
+                new Claim(ClaimTypes.Role, user.Role)                         // Role
+            };
+
+            if (user.UserGroupID.HasValue)
+            {
+                claims.Add(new Claim("UserGroupId", user.UserGroupID.Value.ToString())); // Custom claim for UserGroupID
+            }
+
+            var expirationMinutes = int.TryParse(jwtSettings["ExpirationInMinutes"], out var exp) ? exp : 60; // Default to 60 mins
+
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(claims),
+                Expires = DateTime.UtcNow.AddMinutes(expirationMinutes),
+                SigningCredentials = creds,
+                Issuer = jwtSettings["Issuer"],
+                Audience = jwtSettings["Audience"]
+            };
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var securityToken = tokenHandler.CreateToken(tokenDescriptor);
+            var tokenString = tokenHandler.WriteToken(securityToken);
+            // --- End JWT Generation ---
+
+            var userGroup = user.UserGroupID.HasValue ? await _userGroupRepository.GetByIdAsync(user.UserGroupID.Value) : null;
+
+            var tokenDto = new UserTokenDto(
+                Token: tokenString, // Pass the generated token string
+                UserID: user.UserID,
+                Username: user.Username,
+                Role: user.Role,
+                UserGroupID: user.UserGroupID,
+                GroupName: userGroup?.GroupName
+            );
+
+            return (ServiceResult.Success, tokenDto, null);
+        }
+
+        // ... (other methods like RegisterUserAsync, UpdateLastLoginDateAsync, etc. remain the same)
+        // Ensure other methods are present as per your existing UserService.cs
         public async Task<(ServiceResult Status, UserDto? Dto, string? ErrorMessage)> RegisterUserAsync(UserCreateDto createDto)
         {
             if (await _userRepository.GetByUsernameAsync(createDto.Username) != null)
@@ -48,21 +123,15 @@ namespace RegistryApi.Services
                 return (ServiceResult.RefNotFound, null, "Specified UserGroup does not exist.");
             }
 
-
             var user = _mapper.Map<User>(createDto);
             user.PasswordHash = _passwordHasher.HashPassword(createDto.Password);
-            // Role, CreatedDate, IsActive are set by AutoMapper profile or defaults in model
 
-            // Per plan: New users get "User" role and null UserGroupID unless specified (and admin is creating)
-            // For now, UserCreateDto has Role and UserGroupID. We'll assume an Admin might use this.
-            // If public registration, Role would be fixed to "User" and UserGroupID to null.
-            if (string.IsNullOrWhiteSpace(user.Role)) // Default role if not provided
+            if (string.IsNullOrWhiteSpace(user.Role))
             {
                 user.Role = "User";
             }
             user.CreatedDate = DateTime.UtcNow;
             user.IsActive = true;
-
 
             await _userRepository.AddAsync(user);
             if (!await _userRepository.SaveChangesAsync())
@@ -82,18 +151,17 @@ namespace RegistryApi.Services
                 return (ServiceResult.NotFound, null);
             }
 
-            // Check if email is being changed and if the new email already exists for another user
             if (user.Email != updateDto.Email && await _userRepository.GetByEmailAsync(updateDto.Email) != null)
             {
-                return (ServiceResult.Conflict, null); // Email conflict
+                return (ServiceResult.Conflict, null);
             }
 
             if (updateDto.UserGroupID.HasValue && await _userGroupRepository.GetByIdAsync(updateDto.UserGroupID.Value) == null)
             {
-                return (ServiceResult.RefNotFound, null); // UserGroup not found
+                return (ServiceResult.RefNotFound, null);
             }
 
-            _mapper.Map(updateDto, user); // AutoMapper handles mapping updateDto to the existing user entity
+            _mapper.Map(updateDto, user);
 
             _userRepository.Update(user);
             if (!await _userRepository.SaveChangesAsync())
@@ -119,8 +187,8 @@ namespace RegistryApi.Services
 
         public async Task<IEnumerable<UserDto>> GetAllUsersAsync(PaginationParams paginationParams)
         {
-            // In a real app, you'd use a paginated method in the repository
-            var users = await _userRepository.GetAllAsync(); // This needs to be paginated
+            // This should ideally use a paginated repository method
+            var users = await _userRepository.GetAllAsync();
             return _mapper.Map<IEnumerable<UserDto>>(users);
         }
 
@@ -132,7 +200,7 @@ namespace RegistryApi.Services
             if (userGroupId.HasValue)
             {
                 var group = await _userGroupRepository.GetByIdAsync(userGroupId.Value);
-                if (group == null) return ServiceResult.RefNotFound; // Group doesn't exist
+                if (group == null) return ServiceResult.RefNotFound;
             }
 
             user.UserGroupID = userGroupId;
@@ -142,8 +210,7 @@ namespace RegistryApi.Services
 
         public async Task<ServiceResult> ChangeUserRoleAsync(int userId, string newRole)
         {
-            // Basic validation for role, more robust validation might be needed
-            if (newRole != "Admin" && newRole != "User")
+            if (newRole != "Admin" && newRole != "User") // Basic role validation
             {
                 return ServiceResult.BadRequest;
             }
@@ -154,31 +221,6 @@ namespace RegistryApi.Services
             user.Role = newRole;
             _userRepository.Update(user);
             return await _userRepository.SaveChangesAsync() ? ServiceResult.Success : ServiceResult.BadRequest;
-        }
-
-        public async Task<(ServiceResult Status, UserTokenDto? TokenDto, string? ErrorMessage)> AuthenticateUserAsync(UserLoginDto loginDto)
-        {
-            var user = await _userRepository.GetByUsernameAsync(loginDto.Username);
-            if (user == null || !user.IsActive || !_passwordHasher.VerifyPassword(user.PasswordHash, loginDto.Password))
-            {
-                return (ServiceResult.Unauthorized, null, "Invalid username or password.");
-            }
-
-            await UpdateLastLoginDateAsync(user.UserID);
-
-            // Placeholder for JWT generation (Phase 7)
-            // For now, we'll return user details that would go into a token.
-            var userGroup = user.UserGroupID.HasValue ? await _userGroupRepository.GetByIdAsync(user.UserGroupID.Value) : null;
-            var tokenDto = new UserTokenDto(
-                Token: "DUMMY_JWT_TOKEN_REPLACE_LATER", // Placeholder
-                UserID: user.UserID,
-                Username: user.Username,
-                Role: user.Role,
-                UserGroupID: user.UserGroupID,
-                GroupName: userGroup?.GroupName
-            );
-
-            return (ServiceResult.Success, tokenDto, null);
         }
 
         public async Task<ServiceResult> UpdateLastLoginDateAsync(int userId)
@@ -196,12 +238,8 @@ namespace RegistryApi.Services
             var user = await _userRepository.GetByIdAsync(userId);
             if (user == null) return ServiceResult.NotFound;
 
-            // Business rule: Cannot delete currently logged-in user (example, needs context)
-            // Business rule: Cannot delete the last admin (example)
-
             _userRepository.Delete(user);
             return await _userRepository.SaveChangesAsync() ? ServiceResult.Success : ServiceResult.BadRequest;
         }
     }
 }
-

@@ -6,7 +6,7 @@ namespace RegistryApi.DTOs;
 public record SpecificationCoreBaseDto(
     [Required][MaxLength(10)] string BusinessTermID,
     [Required][MaxLength(20)] string Cardinality,
-    [MaxLength(10)] string? UsageNote,
+    string? UsageNote, // MaxLength(10) removed
     [Required] string TypeOfChange
 );
 
@@ -14,7 +14,7 @@ public record SpecificationCoreBaseDto(
 public record SpecificationCoreCreateDto(
     [Required][MaxLength(10)] string BusinessTermID,
     [Required][MaxLength(20)] string Cardinality,
-    [MaxLength(10)] string? UsageNote,
+    string? UsageNote, // MaxLength(10) removed
     [Required] string TypeOfChange
 ) : SpecificationCoreBaseDto(BusinessTermID, Cardinality, UsageNote, TypeOfChange);
 
@@ -22,7 +22,7 @@ public record SpecificationCoreCreateDto(
 public record SpecificationCoreUpdateDto(
     [Required][MaxLength(10)] string BusinessTermID,
     [Required][MaxLength(20)] string Cardinality,
-    [MaxLength(10)] string? UsageNote,
+    string? UsageNote, // MaxLength(10) removed
     [Required] string TypeOfChange
 ) : SpecificationCoreBaseDto(BusinessTermID, Cardinality, UsageNote, TypeOfChange);
 
@@ -32,7 +32,7 @@ public record SpecificationCoreDto(
     int IdentityID, // Include parent ID for context
     [Required][MaxLength(10)] string BusinessTermID,
     [Required][MaxLength(20)] string Cardinality,
-    [MaxLength(10)] string? UsageNote,
+    string? UsageNote, // MaxLength(10) removed
     [Required] string TypeOfChange,
     // New fields from CoreInvoiceModel
     string? CoreBusinessTerm,

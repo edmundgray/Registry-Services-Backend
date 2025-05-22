@@ -1,15 +1,15 @@
 ﻿using System;
-using System.Security.Cryptography; // Required for a slightly better placeholder than plain text
-using System.Text;
+// Add this using statement for BCrypt.Net-Next
+using BCryptNet = BCrypt.Net.BCrypt; // Alias to avoid naming conflicts if any
 
 namespace RegistryApi.Services
 {
-    // WARNING: This is a placeholder implementation for password hashing.
-    // It is NOT cryptographically secure and MUST NOT be used in a production environment.
-    // Replace this with a robust library like BCrypt.Net or ASP.NET Core Identity's password hashing.
+    // Updated to use BCrypt.Net-Next
     public class PasswordHasher : IPasswordHasher
     {
-        private const string Salt = "REGISTRY_API_SALT_VALUE_REPLACE_THIS"; // Example salt, should be unique and ideally per-user in a real system
+        // Work factor for BCrypt. Higher is more secure but slower.
+        // Common values are between 10 and 12. Adjust as needed for your security/performance balance.
+        private const int WorkFactor = 12;
 
         public string HashPassword(string password)
         {
@@ -18,15 +18,8 @@ namespace RegistryApi.Services
                 throw new ArgumentNullException(nameof(password));
             }
 
-            // Placeholder: Simple SHA256 hash with a static salt.
-            // Real systems use algorithms like BCrypt or Argon2 which are designed for password hashing.
-            using (var sha256 = SHA256.Create())
-            {
-                var saltedPassword = password + Salt;
-                var bytes = Encoding.UTF8.GetBytes(saltedPassword);
-                var hashBytes = sha256.ComputeHash(bytes);
-                return Convert.ToBase64String(hashBytes);
-            }
+            // BCrypt.Net-Next automatically handles salt generation and embedding it in the hash.
+            return BCryptNet.HashPassword(password, WorkFactor);
         }
 
         public bool VerifyPassword(string hashedPassword, string providedPassword)
@@ -35,9 +28,24 @@ namespace RegistryApi.Services
             {
                 return false;
             }
-            // Verify by re-hashing the provided password with the same salt and comparing.
-            string hashedProvidedPassword = HashPassword(providedPassword);
-            return hashedPassword == hashedProvidedPassword;
+
+            try
+            {
+                // BCrypt.Net-Next Verify method handles extracting the salt from hashedPassword.
+                return BCryptNet.Verify(providedPassword, hashedPassword);
+            }
+            catch (BCrypt.Net.SaltParseException ex)
+            {
+                // Log this exception: it means the hash format is incorrect.
+                // Consider how to handle this - for now, returning false.
+                Console.WriteLine($"Error verifying password: SaltParseException - {ex.Message}"); // Replace with proper logging
+                return false;
+            }
+            catch (Exception ex) // Catch other potential exceptions during verification
+            {
+                Console.WriteLine($"Error verifying password: {ex.Message}"); // Replace with proper logging
+                return false;
+            }
         }
     }
 }

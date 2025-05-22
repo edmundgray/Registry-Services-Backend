@@ -59,5 +59,9 @@ namespace RegistryApi.DTOs
         string? GroupName
     );
 
+    public record RoleChangeDto(
+        [Required(ErrorMessage = "NewRole is required.")] // Added validation
+        string NewRole
+    );
     // Could also have a Dto for password change, etc.
 }

@@ -5,13 +5,14 @@ using RegistryApi.Services;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
-using RegistryApi.Helpers; // For StatusCodes
+using RegistryApi.Helpers;// For StatusCodes
+using Microsoft.AspNetCore.Authorization; 
 
 namespace RegistryApi.Controllers
 {
     [Route("api/usergroups")]
     [ApiController]
-    // Add [Authorize(Roles = "Admin")] in Phase 7 to the whole controller
+    [Authorize(Roles = "Admin")] 
     public class UserGroupsController : ControllerBase
     {
         private readonly IUserGroupService _userGroupService;
