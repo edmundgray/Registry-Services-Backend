@@ -155,6 +155,8 @@ public class SpecificationService(
             PreferredSyntax: entity.PreferredSyntax,
             CreatedDate: entity.CreatedDate,
             ModifiedDate: entity.ModifiedDate,
+            ImplementationStatus: entity.ImplementationStatus, // Map new status
+            RegistrationStatus: entity.RegistrationStatus,   // Map new status
             SpecificationCores: coreResponse, // Assign the fetched PaginatedSpecificationCoreResponse
             SpecificationExtensionComponents: extensionResponse // Assign the fetched PaginatedSpecificationExtensionResponse
         );
@@ -177,6 +179,17 @@ public class SpecificationService(
 
         entity.CreatedDate = DateTime.UtcNow;
         entity.ModifiedDate = DateTime.UtcNow;
+
+        // Set default statuses if not provided in DTO, or rely on DTO defaults
+        if (string.IsNullOrWhiteSpace(entity.ImplementationStatus))
+        {
+            entity.ImplementationStatus = "Planned"; // Default if not set by DTO/mapper
+        }
+        if (string.IsNullOrWhiteSpace(entity.RegistrationStatus))
+        {
+            entity.RegistrationStatus = "Submitted"; // Default if not set by DTO/mapper
+        }
+
 
         // Assign UserGroupID based on current user, as per plan
         if (currentUser.Role == "User")

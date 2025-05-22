@@ -58,10 +58,16 @@ public class SpecificationIdentifyingInformation
     public DateTime CreatedDate { get; set; }
     public DateTime ModifiedDate { get; set; }
     
-    // New field for UserGroup ownership
     public int? UserGroupID { get; set; } // Nullable Foreign Key
 
-    
+    // New Status Fields
+    [MaxLength(15)] // Adjust MaxLength as appropriate
+    public string? ImplementationStatus { get; set; } // e.g., Planned, Development, Active, Revoked
+
+    [MaxLength(15)] // Adjust MaxLength as appropriate
+    public string? RegistrationStatus { get; set; } // e.g., Submitted, Under review, Verified
+
+
     // New Navigation properties
     [ForeignKey("UserGroupID")]
     public virtual UserGroup? UserGroup { get; set; }
