@@ -147,9 +147,36 @@ public class SpecificationService(
             extensionResponse = new PaginatedSpecificationExtensionResponse(defaultExtMetadata, new List<SpecificationExtensionComponentDto>());
         }
 
-        var detailDto = mapper.Map<SpecificationIdentifyingInformationDetailDto>(entity);
-        detailDto = detailDto with { SpecificationCores = coreResponse, SpecificationExtensionComponents = extensionResponse };
+        //var detailDto = mapper.Map<SpecificationIdentifyingInformationDetailDto>(entity);
+        //detailDto = detailDto with { SpecificationCores = coreResponse, SpecificationExtensionComponents = extensionResponse };
 
+        // Manual construction of the DTO using its primary constructor because of an error with the commented mapper.Map
+        var detailDto = new SpecificationIdentifyingInformationDetailDto(
+            IdentityID: entity.IdentityID,
+            SpecificationIdentifier: entity.SpecificationIdentifier,
+            SpecificationName: entity.SpecificationName,
+            Sector: entity.Sector,
+            SpecificationVersion: entity.SpecificationVersion,
+            DateOfImplementation: entity.DateOfImplementation,
+            Country: entity.Country,
+            SubSector: entity.SubSector,
+            Purpose: entity.Purpose,
+            ContactInformation: entity.ContactInformation,
+            GoverningEntity: entity.GoverningEntity,
+            CoreVersion: entity.CoreVersion,
+            SpecificationSourceLink: entity.SpecificationSourceLink,
+            IsCountrySpecification: entity.IsCountrySpecification,
+            UnderlyingSpecificationIdentifier: entity.UnderlyingSpecificationIdentifier,
+            PreferredSyntax: entity.PreferredSyntax,
+            CreatedDate: entity.CreatedDate,
+            ModifiedDate: entity.ModifiedDate,
+            ImplementationStatus: entity.ImplementationStatus,
+            RegistrationStatus: entity.RegistrationStatus,
+            SpecificationCores: coreResponse, // Pass the correctly typed and populated object
+            SpecificationExtensionComponents: extensionResponse // Pass the correctly typed and populated object
+        );
+
+       
         return detailDto;
     }
 
