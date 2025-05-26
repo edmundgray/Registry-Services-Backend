@@ -143,14 +143,10 @@ builder.Logging.AddConsole();
 var app = builder.Build();
 
 // --- Configure the HTTP request pipeline ---
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
 {
     app.UseSwagger();
-    app.UseSwaggerUI(options =>
-    {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Registry API v1");
-        
-    });
+    app.UseSwaggerUI();
     app.UseDeveloperExceptionPage();
 }
 else
