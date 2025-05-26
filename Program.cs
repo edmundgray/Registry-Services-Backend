@@ -6,9 +6,25 @@ using RegistryApi.Services; // Ensure this namespace is correct for your service
 using Microsoft.Extensions.Logging;// Required for ILogger
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
-using System.Text; 
+using System.Text;
+using Azure.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Azure Key Vault for Staging and Production environments
+if (!builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing"))
+{
+    var keyVaultUriString = Environment.GetEnvironmentVariable("VaultUri");
+    if (!string.IsNullOrEmpty(keyVaultUriString) && Uri.TryCreate(keyVaultUriString, UriKind.Absolute, out var keyVaultUri))
+    {
+        builder.Configuration.AddAzureKeyVault(keyVaultUri, new DefaultAzureCredential());
+    }
+    else
+    {
+        // Optionally, log a warning or throw an exception if the VaultUri is missing in Staging/Production
+        // For example: builder.Logging.AddConsole().CreateLogger<Program>().LogWarning("VaultUri environment variable is not set or invalid for {Environment} environment.", builder.Environment.EnvironmentName);
+    }
+}
 
 // --- Service Configuration ---
 
@@ -33,7 +49,6 @@ else
         options.UseSqlServer(connectionString));
 }
 
-
 // 2. Configure AutoMapper
 builder.Services.AddAutoMapper(typeof(Program)); // Assumes SpecificationProfile is in the same assembly
 
@@ -49,7 +64,6 @@ builder.Services.AddScoped<ISpecificationService, SpecificationService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IUserGroupService, UserGroupService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>(); // Register the placeholder password hasher
-
 
 // --- START: JWT Authentication Configuration ---
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -84,7 +98,6 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization(); // Add Authorization services
 // --- END: JWT Authentication Configuration ---
-
 
 // 5. Add Controllers and API Explorer/Swagger
 builder.Services.AddControllers();
@@ -125,7 +138,6 @@ builder.Services.AddSwaggerGen(options =>
 // Add Logging
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
-
 
 // --- Build the application ---
 var app = builder.Build();

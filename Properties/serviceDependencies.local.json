@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "secrets1": {
+      "secretStore": null,
+      "resourceId": "/subscriptions/[parameters('subscriptionId')]/resourcegroups/[parameters('resourceGroupName')]/providers/Microsoft.KeyVault/vaults/RegistryServicesvault",
+      "type": "secrets.keyVault",
+      "connectionId": "VaultUri"
+    }
+  }
+}

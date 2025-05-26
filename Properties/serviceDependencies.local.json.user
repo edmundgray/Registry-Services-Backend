@@ -1,0 +1,20 @@
+{
+  "dependencies": {
+    "secrets1": {
+      "restored": true,
+      "restoreTime": "2025-05-26T17:42:23.8444078Z"
+    }
+  },
+  "parameters": {
+    "secrets1.resourceGroupName": {
+      "Name": "secrets1.resourceGroupName",
+      "Type": "resourceGroup",
+      "Value": "RegistryServices"
+    },
+    "secrets1.subscriptionId": {
+      "Name": "secrets1.subscriptionId",
+      "Type": "subscription",
+      "Value": "705171de-f0d6-4699-b274-c15551d8a730"
+    }
+  }
+}
