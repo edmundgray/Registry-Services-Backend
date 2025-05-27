@@ -9,15 +9,18 @@ public class SpecificationProfile : Profile
     public SpecificationProfile()
     {
         // SpecificationIdentifyingInformation Mappings
-        CreateMap<SpecificationIdentifyingInformationCreateDto, SpecificationIdentifyingInformation>();
-        CreateMap<SpecificationIdentifyingInformationUpdateDto, SpecificationIdentifyingInformation>();
+        CreateMap<SpecificationIdentifyingInformationCreateDto, SpecificationIdentifyingInformation>()
+            .ForMember(dest => dest.SpecificationType, opt => opt.MapFrom(src => src.SpecificationType)); // Added mapping for SpecificationType
+        CreateMap<SpecificationIdentifyingInformationUpdateDto, SpecificationIdentifyingInformation>()
+            .ForMember(dest => dest.SpecificationType, opt => opt.MapFrom(src => src.SpecificationType)); // Added mapping for SpecificationType
 
         // Ensure CreatedDate and ModifiedDate are mapped to the DTOs
-        CreateMap<SpecificationIdentifyingInformation, SpecificationIdentifyingInformationHeaderDto>();
+        CreateMap<SpecificationIdentifyingInformation, SpecificationIdentifyingInformationHeaderDto>()
+            .ForMember(dest => dest.SpecificationType, opt => opt.MapFrom(src => src.SpecificationType)); // Added mapping for SpecificationType
         CreateMap<SpecificationIdentifyingInformation, SpecificationIdentifyingInformationDetailDto>()
              .ForMember(dest => dest.SpecificationCores, opt => opt.Ignore())
-             .ForMember(dest => dest.SpecificationExtensionComponents, opt => opt.Ignore());
-
+             .ForMember(dest => dest.SpecificationExtensionComponents, opt => opt.Ignore())
+             .ForMember(dest => dest.SpecificationType, opt => opt.MapFrom(src => src.SpecificationType)); // Added mapping for SpecificationType
 
         // SpecificationCore Mappings
         CreateMap<SpecificationCoreCreateDto, SpecificationCore>();

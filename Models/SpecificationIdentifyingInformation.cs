@@ -67,6 +67,11 @@ public class SpecificationIdentifyingInformation
     [MaxLength(15)] // Adjust MaxLength as appropriate
     public string? RegistrationStatus { get; set; } // e.g., Submitted, Under review, Verified
 
+    /// <summary>
+    /// Type of the specification (e.g., "Core", "Extension", "CountrySpecific").
+    /// </summary>
+    [MaxLength(50)]
+    public string? SpecificationType { get; set; }
 
     // New Navigation properties
     [ForeignKey("UserGroupID")]

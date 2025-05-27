@@ -29,7 +29,7 @@ public class SpecificationIdentifyingInformationRepository(RegistryDbContext con
         // Sorting Logic
         if (!string.IsNullOrWhiteSpace(paginationParams.SortBy))
         {
-            bool isDescending = paginationParams.SortOrder?.ToUpper() == "DESC";
+            bool isDescending = paginationParams.SortOrder?.ToUpper().Substring(4) == "DESC";
             
             // Ensure property names in SortBy match model properties exactly (case-insensitive for switch).
             switch (paginationParams.SortBy.ToLowerInvariant())

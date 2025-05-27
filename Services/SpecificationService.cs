@@ -172,6 +172,7 @@ public class SpecificationService(
             ModifiedDate: entity.ModifiedDate,
             ImplementationStatus: entity.ImplementationStatus,
             RegistrationStatus: entity.RegistrationStatus,
+            SpecificationType: entity.SpecificationType,
             SpecificationCores: coreResponse, // Pass the correctly typed and populated object
             SpecificationExtensionComponents: extensionResponse // Pass the correctly typed and populated object
         );

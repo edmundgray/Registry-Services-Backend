@@ -19,12 +19,15 @@ public record SpecificationIdentifyingInformationCreateDto(
     [MaxLength(50)] string? CoreVersion,
     [MaxLength(255)] string? SpecificationSourceLink,
     [MaxLength(200)] string? Country,
+    [MaxLength(50)] string? SpecificationType ="Extension", // Added SpecificationType
     bool IsCountrySpecification = false, // Default value
     [MaxLength(255)] string? UnderlyingSpecificationIdentifier = null,
     [MaxLength(100)] string? PreferredSyntax = null,
+    
     // New Status Fields - consider making them optional or providing defaults
     [MaxLength(15)] string? ImplementationStatus = "Planned", // Default value
     [MaxLength(15)] string? RegistrationStatus = "Submitted"  // Default value
+   
 // CreatedDate and ModifiedDate are not included here as they are server-set
 );
 
@@ -47,7 +50,8 @@ public record SpecificationIdentifyingInformationUpdateDto(
     [MaxLength(100)] string? PreferredSyntax,
     // New Status Fields
     [MaxLength(15)] string? ImplementationStatus,
-    [MaxLength(15)] string? RegistrationStatus
+    [MaxLength(15)] string? RegistrationStatus,
+    [MaxLength(50)] string? SpecificationType // Added SpecificationType
 // CreatedDate and ModifiedDate are not included here as they are server-set
 );
 
@@ -65,11 +69,12 @@ public record SpecificationIdentifyingInformationHeaderDto(
     DateTime ModifiedDate,
     // New Status Fields
     string? ImplementationStatus,
-    string? RegistrationStatus
+    string? RegistrationStatus,
+    string? SpecificationType // Added SpecificationType
 )
 {
     // Parameterless constructor for AutoMapper if ever needed, though less likely for this specific DTO
-    public SpecificationIdentifyingInformationHeaderDto() : this(0, string.Empty, string.Empty, string.Empty, null, null, null, DateTime.MinValue, DateTime.MinValue,default!,default!) { }
+    public SpecificationIdentifyingInformationHeaderDto() : this(0, string.Empty, string.Empty, string.Empty, null, null, null, DateTime.MinValue, DateTime.MinValue, default!, default!, default!) { }
 }
 
 // Response for paginated list of headers
@@ -104,6 +109,7 @@ public record SpecificationIdentifyingInformationDetailDto(
     // New Status Fields
     string? ImplementationStatus,
     string? RegistrationStatus,
+    string? SpecificationType, // Added SpecificationType
     // Paginated child lists
     PaginatedSpecificationCoreResponse SpecificationCores,
     PaginatedSpecificationExtensionResponse SpecificationExtensionComponents
@@ -112,7 +118,7 @@ public record SpecificationIdentifyingInformationDetailDto(
     public SpecificationIdentifyingInformationDetailDto() : this(
         0, string.Empty, string.Empty, string.Empty, null, null, null, null, string.Empty, string.Empty,
         null, null, null, false, null, null, DateTime.MinValue, DateTime.MinValue,
-        null, null, // Statuses
+        null, null, null, // Added null for SpecificationType in parameterless constructor
         default!, default!
     )
     { }
