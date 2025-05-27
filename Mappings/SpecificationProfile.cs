@@ -10,17 +10,21 @@ public class SpecificationProfile : Profile
     {
         // SpecificationIdentifyingInformation Mappings
         CreateMap<SpecificationIdentifyingInformationCreateDto, SpecificationIdentifyingInformation>()
-            .ForMember(dest => dest.SpecificationType, opt => opt.MapFrom(src => src.SpecificationType)); // Added mapping for SpecificationType
+            .ForMember(dest => dest.SpecificationType, opt => opt.MapFrom(src => src.SpecificationType))
+            .ForMember(dest => dest.ConformanceLevel, opt => opt.MapFrom(src => src.ConformanceLevel)); // Added mapping for ConformanceLevel
         CreateMap<SpecificationIdentifyingInformationUpdateDto, SpecificationIdentifyingInformation>()
-            .ForMember(dest => dest.SpecificationType, opt => opt.MapFrom(src => src.SpecificationType)); // Added mapping for SpecificationType
+            .ForMember(dest => dest.SpecificationType, opt => opt.MapFrom(src => src.SpecificationType))
+            .ForMember(dest => dest.ConformanceLevel, opt => opt.MapFrom(src => src.ConformanceLevel)); // Added mapping for ConformanceLevel
 
         // Ensure CreatedDate and ModifiedDate are mapped to the DTOs
         CreateMap<SpecificationIdentifyingInformation, SpecificationIdentifyingInformationHeaderDto>()
-            .ForMember(dest => dest.SpecificationType, opt => opt.MapFrom(src => src.SpecificationType)); // Added mapping for SpecificationType
+            .ForMember(dest => dest.SpecificationType, opt => opt.MapFrom(src => src.SpecificationType))
+            .ForMember(dest => dest.ConformanceLevel, opt => opt.MapFrom(src => src.ConformanceLevel)); // Added mapping for ConformanceLevel
         CreateMap<SpecificationIdentifyingInformation, SpecificationIdentifyingInformationDetailDto>()
              .ForMember(dest => dest.SpecificationCores, opt => opt.Ignore())
              .ForMember(dest => dest.SpecificationExtensionComponents, opt => opt.Ignore())
-             .ForMember(dest => dest.SpecificationType, opt => opt.MapFrom(src => src.SpecificationType)); // Added mapping for SpecificationType
+             .ForMember(dest => dest.SpecificationType, opt => opt.MapFrom(src => src.SpecificationType))
+             .ForMember(dest => dest.ConformanceLevel, opt => opt.MapFrom(src => src.ConformanceLevel)); // Added mapping for ConformanceLevel
 
         // SpecificationCore Mappings
         CreateMap<SpecificationCoreCreateDto, SpecificationCore>();

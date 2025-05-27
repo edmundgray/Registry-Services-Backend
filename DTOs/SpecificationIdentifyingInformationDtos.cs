@@ -19,16 +19,15 @@ public record SpecificationIdentifyingInformationCreateDto(
     [MaxLength(50)] string? CoreVersion,
     [MaxLength(255)] string? SpecificationSourceLink,
     [MaxLength(200)] string? Country,
-    [MaxLength(50)] string? SpecificationType ="Extension", // Added SpecificationType
+    [MaxLength(50)] string? SpecificationType = "Extension", // Added SpecificationType
     bool IsCountrySpecification = false, // Default value
     [MaxLength(255)] string? UnderlyingSpecificationIdentifier = null,
     [MaxLength(100)] string? PreferredSyntax = null,
     
     // New Status Fields - consider making them optional or providing defaults
     [MaxLength(15)] string? ImplementationStatus = "Planned", // Default value
-    [MaxLength(15)] string? RegistrationStatus = "Submitted"  // Default value
-   
-// CreatedDate and ModifiedDate are not included here as they are server-set
+    [MaxLength(15)] string? RegistrationStatus = "Submitted", // Default value
+    [MaxLength(25)] string? ConformanceLevel ="Core Conformant" // Added ConformanceLevel
 );
 
 // Update DTO often mirrors Create DTO for PUT operations
@@ -51,11 +50,11 @@ public record SpecificationIdentifyingInformationUpdateDto(
     // New Status Fields
     [MaxLength(15)] string? ImplementationStatus,
     [MaxLength(15)] string? RegistrationStatus,
-    [MaxLength(50)] string? SpecificationType // Added SpecificationType
-// CreatedDate and ModifiedDate are not included here as they are server-set
+    [MaxLength(50)] string? SpecificationType, // Added SpecificationType
+    [MaxLength(25)] string? ConformanceLevel // Added ConformanceLevel
 );
 
-
+// Header DTO for summary information
 public record SpecificationIdentifyingInformationHeaderDto(
     int IdentityID,
     string SpecificationIdentifier,
@@ -70,11 +69,12 @@ public record SpecificationIdentifyingInformationHeaderDto(
     // New Status Fields
     string? ImplementationStatus,
     string? RegistrationStatus,
-    string? SpecificationType // Added SpecificationType
+    string? SpecificationType, // Added SpecificationType
+    string? ConformanceLevel // Added ConformanceLevel
 )
 {
     // Parameterless constructor for AutoMapper if ever needed, though less likely for this specific DTO
-    public SpecificationIdentifyingInformationHeaderDto() : this(0, string.Empty, string.Empty, string.Empty, null, null, null, DateTime.MinValue, DateTime.MinValue, default!, default!, default!) { }
+    public SpecificationIdentifyingInformationHeaderDto() : this(0, string.Empty, string.Empty, string.Empty, null, null, null, DateTime.MinValue, DateTime.MinValue, default!, default!, default!, default!) { }
 }
 
 // Response for paginated list of headers
@@ -110,6 +110,7 @@ public record SpecificationIdentifyingInformationDetailDto(
     string? ImplementationStatus,
     string? RegistrationStatus,
     string? SpecificationType, // Added SpecificationType
+    string? ConformanceLevel, // Added ConformanceLevel
     // Paginated child lists
     PaginatedSpecificationCoreResponse SpecificationCores,
     PaginatedSpecificationExtensionResponse SpecificationExtensionComponents
@@ -118,7 +119,7 @@ public record SpecificationIdentifyingInformationDetailDto(
     public SpecificationIdentifyingInformationDetailDto() : this(
         0, string.Empty, string.Empty, string.Empty, null, null, null, null, string.Empty, string.Empty,
         null, null, null, false, null, null, DateTime.MinValue, DateTime.MinValue,
-        null, null, null, // Added null for SpecificationType in parameterless constructor
+        null, null, null, null, // Added null for ConformanceLevel
         default!, default!
     )
     { }

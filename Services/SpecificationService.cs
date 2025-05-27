@@ -173,6 +173,7 @@ public class SpecificationService(
             ImplementationStatus: entity.ImplementationStatus,
             RegistrationStatus: entity.RegistrationStatus,
             SpecificationType: entity.SpecificationType,
+            ConformanceLevel: entity.ConformanceLevel, // Added ConformanceLevel
             SpecificationCores: coreResponse, // Pass the correctly typed and populated object
             SpecificationExtensionComponents: extensionResponse // Pass the correctly typed and populated object
         );

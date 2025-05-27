@@ -26,12 +26,27 @@ public class SpecificationIdentifyingInformationRepository(RegistryDbContext con
             );
         }
 
+        // Specific Field Filters
+        if (!string.IsNullOrWhiteSpace(paginationParams.SpecificationType))
+        {
+            query = query.Where(s => s.SpecificationType != null && s.SpecificationType.ToLower() == paginationParams.SpecificationType.ToLower());
+        }
+
+        if (!string.IsNullOrWhiteSpace(paginationParams.Sector))
+        {
+            query = query.Where(s => s.Sector != null && s.Sector.ToLower() == paginationParams.Sector.ToLower());
+        }
+
+        if (!string.IsNullOrWhiteSpace(paginationParams.Country))
+        {
+            query = query.Where(s => s.Country != null && s.Country.ToLower() == paginationParams.Country.ToLower());
+        }
+
         // Sorting Logic
         if (!string.IsNullOrWhiteSpace(paginationParams.SortBy))
         {
-            bool isDescending = paginationParams.SortOrder?.ToUpper().Substring(4) == "DESC";
+            bool isDescending = paginationParams.SortOrder?.ToUpper() == "DESC";
             
-            // Ensure property names in SortBy match model properties exactly (case-insensitive for switch).
             switch (paginationParams.SortBy.ToLowerInvariant())
             {
                 case "specificationname":
@@ -43,6 +58,12 @@ public class SpecificationIdentifyingInformationRepository(RegistryDbContext con
                 case "sector":
                     query = isDescending ? query.OrderByDescending(s => s.Sector) : query.OrderBy(s => s.Sector);
                     break;
+                case "country":
+                    query = isDescending ? query.OrderByDescending(s => s.Country) : query.OrderBy(s => s.Country);
+                    break;
+                case "specificationtype":
+                    query = isDescending ? query.OrderByDescending(s => s.SpecificationType) : query.OrderBy(s => s.SpecificationType);
+                    break;
                 case "modifieddate":
                     query = isDescending ? query.OrderByDescending(s => s.ModifiedDate) : query.OrderBy(s => s.ModifiedDate);
                     break;
@@ -52,14 +73,13 @@ public class SpecificationIdentifyingInformationRepository(RegistryDbContext con
                 case "specificationidentifier":
                     query = isDescending ? query.OrderByDescending(s => s.SpecificationIdentifier) : query.OrderBy(s => s.SpecificationIdentifier);
                     break;
-                default: // Default sort if SortBy is provided but not matched or if it's an unsupported field
+                default:
                     query = query.OrderByDescending(s => s.ModifiedDate);
                     break;
             }
         }
         else
         {
-            // Default Sort if SortBy is not provided
             query = query.OrderByDescending(s => s.ModifiedDate);
         }
 
@@ -68,8 +88,6 @@ public class SpecificationIdentifyingInformationRepository(RegistryDbContext con
 
     public async Task<PagedList<SpecificationIdentifyingInformation>> GetByUserGroupIdPaginatedAsync(int userGroupId, PaginationParams paginationParams)
     {
-        // This method remains unchanged and does not use SearchTerm, SortBy, or SortOrder from paginationParams.
-        // It retains its original filtering by UserGroupID and sorting by SpecificationIdentifier.
         var query = _dbSet
             .Where(s => s.UserGroupID == userGroupId)
             .AsNoTracking()

@@ -54,6 +54,12 @@ public class SpecificationIdentifyingInformation
     [MaxLength(100)]
     public string? PreferredSyntax { get; set; }
 
+    /// <summary>
+    /// The level of conformance for the specification.
+    /// </summary>
+    [MaxLength(25)]
+    public string? ConformanceLevel { get; set; }
+
     // New audit fields
     public DateTime CreatedDate { get; set; }
     public DateTime ModifiedDate { get; set; }

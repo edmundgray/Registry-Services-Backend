@@ -30,4 +30,20 @@ public class PaginationParams
     /// Sort order: "ASC" for ascending, "DESC" for descending.
     /// </summary>
     public string? SortOrder { get; set; }
+
+    /// <summary>
+    /// Type of specification to filter by (e.g., "Core", "Extension", "CountrySpecific").
+    /// Intended max length for values is 50 characters.
+    /// </summary>
+    public string? SpecificationType { get; set; }
+
+    /// <summary>
+    /// Sector to filter by.
+    /// </summary>
+    public string? Sector { get; set; }
+
+    /// <summary>
+    /// Country to filter by.
+    /// </summary>
+    public string? Country { get; set; }
 }
