@@ -70,11 +70,15 @@ public record SpecificationIdentifyingInformationHeaderDto(
     string? ImplementationStatus,
     string? RegistrationStatus,
     string? SpecificationType, // Added SpecificationType
-    string? ConformanceLevel // Added ConformanceLevel
+    string? ConformanceLevel, // Added ConformanceLevel
+    // Added fields
+    string? Purpose,
+    string? PreferredSyntax,
+    string? GoverningEntity
 )
 {
     // Parameterless constructor for AutoMapper if ever needed, though less likely for this specific DTO
-    public SpecificationIdentifyingInformationHeaderDto() : this(0, string.Empty, string.Empty, string.Empty, null, null, null, DateTime.MinValue, DateTime.MinValue, default!, default!, default!, default!) { }
+    public SpecificationIdentifyingInformationHeaderDto() : this(0, string.Empty, string.Empty, string.Empty, null, null, null, DateTime.MinValue, DateTime.MinValue, default!, default!, default!, default!, default!, default!, default!) { }
 }
 
 // Response for paginated list of headers

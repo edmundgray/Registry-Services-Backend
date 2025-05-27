@@ -19,7 +19,10 @@ public class SpecificationProfile : Profile
         // Ensure CreatedDate and ModifiedDate are mapped to the DTOs
         CreateMap<SpecificationIdentifyingInformation, SpecificationIdentifyingInformationHeaderDto>()
             .ForMember(dest => dest.SpecificationType, opt => opt.MapFrom(src => src.SpecificationType))
-            .ForMember(dest => dest.ConformanceLevel, opt => opt.MapFrom(src => src.ConformanceLevel)); // Added mapping for ConformanceLevel
+            .ForMember(dest => dest.ConformanceLevel, opt => opt.MapFrom(src => src.ConformanceLevel)) // Added mapping for ConformanceLevel
+            .ForMember(dest => dest.Purpose, opt => opt.MapFrom(src => src.Purpose)) // Added mapping for Purpose
+            .ForMember(dest => dest.PreferredSyntax, opt => opt.MapFrom(src => src.PreferredSyntax)) // Added mapping for PreferredSyntax
+            .ForMember(dest => dest.GoverningEntity, opt => opt.MapFrom(src => src.GoverningEntity)); // Added mapping for GoverningEntity
         CreateMap<SpecificationIdentifyingInformation, SpecificationIdentifyingInformationDetailDto>()
              .ForMember(dest => dest.SpecificationCores, opt => opt.Ignore())
              .ForMember(dest => dest.SpecificationExtensionComponents, opt => opt.Ignore())
