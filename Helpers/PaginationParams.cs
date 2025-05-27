@@ -1,8 +1,7 @@
 namespace RegistryApi.Helpers;
 
 /// <summary>
-/// Base class for pagination query parameters.
-/// No significant .NET 8 changes needed here.
+/// Parameters for pagination, generic search, and sorting.
 /// </summary>
 public class PaginationParams
 {
@@ -16,4 +15,19 @@ public class PaginationParams
         get => _pageSize;
         set => _pageSize = (value > MaxPageSize) ? MaxPageSize : Math.Max(1, value);
     }
+
+    /// <summary>
+    /// Generic search term to filter results.
+    /// </summary>
+    public string? SearchTerm { get; set; }
+
+    /// <summary>
+    /// Field to sort by (e.g., "SpecificationName", "ModifiedDate").
+    /// </summary>
+    public string? SortBy { get; set; }
+
+    /// <summary>
+    /// Sort order: "ASC" for ascending, "DESC" for descending.
+    /// </summary>
+    public string? SortOrder { get; set; }
 }

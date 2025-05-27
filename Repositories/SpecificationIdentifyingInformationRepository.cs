@@ -13,14 +13,63 @@ public class SpecificationIdentifyingInformationRepository(RegistryDbContext con
 {
     public async Task<PagedList<SpecificationIdentifyingInformation>> GetAllPaginatedAsync(PaginationParams paginationParams)
     {
-        var query = _dbSet.AsNoTracking()
-                          .OrderBy(s => s.SpecificationIdentifier);
+        var query = _dbSet.AsNoTracking();
+
+        // Generic SearchTerm Filter for SpecificationName, Purpose, and Sector
+        if (!string.IsNullOrWhiteSpace(paginationParams.SearchTerm))
+        {
+            string searchTermLower = paginationParams.SearchTerm.ToLower();
+            query = query.Where(s =>
+                (s.SpecificationName != null && s.SpecificationName.ToLower().Contains(searchTermLower)) ||
+                (s.Purpose != null && s.Purpose.ToLower().Contains(searchTermLower)) ||
+                (s.Sector != null && s.Sector.ToLower().Contains(searchTermLower))
+            );
+        }
+
+        // Sorting Logic
+        if (!string.IsNullOrWhiteSpace(paginationParams.SortBy))
+        {
+            bool isDescending = paginationParams.SortOrder?.ToUpper() == "DESC";
+            
+            // Ensure property names in SortBy match model properties exactly (case-insensitive for switch).
+            switch (paginationParams.SortBy.ToLowerInvariant())
+            {
+                case "specificationname":
+                    query = isDescending ? query.OrderByDescending(s => s.SpecificationName) : query.OrderBy(s => s.SpecificationName);
+                    break;
+                case "purpose":
+                    query = isDescending ? query.OrderByDescending(s => s.Purpose) : query.OrderBy(s => s.Purpose);
+                    break;
+                case "sector":
+                    query = isDescending ? query.OrderByDescending(s => s.Sector) : query.OrderBy(s => s.Sector);
+                    break;
+                case "modifieddate":
+                    query = isDescending ? query.OrderByDescending(s => s.ModifiedDate) : query.OrderBy(s => s.ModifiedDate);
+                    break;
+                case "createddate":
+                    query = isDescending ? query.OrderByDescending(s => s.CreatedDate) : query.OrderBy(s => s.CreatedDate);
+                    break;
+                case "specificationidentifier":
+                    query = isDescending ? query.OrderByDescending(s => s.SpecificationIdentifier) : query.OrderBy(s => s.SpecificationIdentifier);
+                    break;
+                default: // Default sort if SortBy is provided but not matched or if it's an unsupported field
+                    query = query.OrderByDescending(s => s.ModifiedDate);
+                    break;
+            }
+        }
+        else
+        {
+            // Default Sort if SortBy is not provided
+            query = query.OrderByDescending(s => s.ModifiedDate);
+        }
+
         return await PagedList<SpecificationIdentifyingInformation>.CreateAsync(query, paginationParams.PageNumber, paginationParams.PageSize);
     }
 
-    // New Method Implementation
     public async Task<PagedList<SpecificationIdentifyingInformation>> GetByUserGroupIdPaginatedAsync(int userGroupId, PaginationParams paginationParams)
     {
+        // This method remains unchanged and does not use SearchTerm, SortBy, or SortOrder from paginationParams.
+        // It retains its original filtering by UserGroupID and sorting by SpecificationIdentifier.
         var query = _dbSet
             .Where(s => s.UserGroupID == userGroupId)
             .AsNoTracking()

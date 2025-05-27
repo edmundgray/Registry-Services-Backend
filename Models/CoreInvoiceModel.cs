@@ -22,6 +22,11 @@ public class CoreInvoiceModel
     [MaxLength(20)]
     public required string Cardinality { get; set; }
 
+    /// <summary>
+    /// Position of the row for maintaining juxtaposition, crucial for ordered display.
+    /// </summary>
+    public short RowPos { get; set; }
+
     // Add other properties as needed...
     [Column(TypeName = "text")]
     public string? SemanticDescription { get; set; }
