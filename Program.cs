@@ -65,6 +65,19 @@ builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IUserGroupService, UserGroupService>();
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>(); // Register the placeholder password hasher
 
+// --- START: CORS Configuration ---
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowSpecificOrigin",
+        policyBuilder => // Renamed 'builder' to 'policyBuilder' to avoid conflict with WebApplicationBuilder
+        {
+            policyBuilder.WithOrigins("http://localhost") // The origin of your requesting app
+                   .AllowAnyHeader()
+                   .AllowAnyMethod();
+        });
+});
+// --- END: CORS Configuration ---
+
 // --- START: JWT Authentication Configuration ---
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"];
@@ -108,7 +121,7 @@ builder.Services.AddSwaggerGen(options =>
     {
         Version = "v1",
         Title = "Registry API",
-        Description = "API for managing data specifications"
+        Description = "API for managing eInvoice Specifications conformant to EN 16931"
     });
     // --- START: Add JWT Authentication to Swagger ---
     options.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
@@ -157,6 +170,14 @@ else
 }
 
 app.UseHttpsRedirection();
+
+// --- START: Add CORS Middleware ---
+// IMPORTANT: UseCors must be placed correctly, typically after UseRouting (implicitly added by MapControllers)
+// and before UseAuthentication and UseAuthorization.
+// For simplicity with minimal APIs or standard controller setup, placing it here is common.
+app.UseCors("AllowSpecificOrigin");
+// --- END: Add CORS Middleware ---
+
 
 // --- START: Add Authentication and Authorization Middleware ---
 // IMPORTANT: UseAuthentication must come before UseAuthorization
