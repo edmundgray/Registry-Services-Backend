@@ -58,6 +58,7 @@ builder.Services.AddScoped<ISpecificationCoreRepository, SpecificationCoreReposi
 builder.Services.AddScoped<ISpecificationExtensionComponentRepository, SpecificationExtensionComponentRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserGroupRepository, UserGroupRepository>();
+builder.Services.AddScoped<ICoreInvoiceModelRepository, CoreInvoiceModelRepository>(); // Add CoreInvoiceModelRepository
 
 // 4. Register Services
 builder.Services.AddScoped<ISpecificationService, SpecificationService>();

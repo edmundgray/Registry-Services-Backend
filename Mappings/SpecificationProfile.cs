@@ -37,6 +37,9 @@ public class SpecificationProfile : Profile
             .ForMember(dest => dest.CoreLevel, opt => opt.MapFrom(src => src.CoreInvoiceModel.Level))
             .ForMember(dest => dest.CoreSemanticDescription, opt => opt.MapFrom(src => src.CoreInvoiceModel.SemanticDescription));
 
+        // CoreInvoiceModel Mapping (New)
+        CreateMap<CoreInvoiceModel, CoreInvoiceModelDto>(); // Added mapping for CoreInvoiceModel to CoreInvoiceModelDto
+
         // SpecificationExtensionComponent Mappings
         CreateMap<SpecificationExtensionComponentCreateDto, SpecificationExtensionComponent>();
         CreateMap<SpecificationExtensionComponentUpdateDto, SpecificationExtensionComponent>();
