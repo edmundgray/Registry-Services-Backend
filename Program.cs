@@ -71,9 +71,12 @@ builder.Services.AddCors(options =>
     options.AddPolicy("AllowSpecificOrigin",
         policyBuilder => // Renamed 'builder' to 'policyBuilder' to avoid conflict with WebApplicationBuilder
         {
-            policyBuilder.WithOrigins("http://localhost") // The origin of your requesting app
-                   .AllowAnyHeader()
-                   .AllowAnyMethod();
+            // Allow any port on 127.0.0.1 or localhost and define methods/headers
+            policyBuilder.SetIsOriginAllowed(origin => 
+                        origin.StartsWith("http://127.0.0.1:") || 
+                        origin.StartsWith("http://localhost:"))
+                   .WithMethods("POST", "GET", "OPTIONS", "PUT", "DELETE") // Explicitly list allowed methods
+                   .WithHeaders("Content-Type", "Accept", "Authorization"); // Explicitly list allowed headers
         });
 });
 // --- END: CORS Configuration ---
