@@ -30,7 +30,12 @@ public class CoreInvoiceModel
     // Add other properties as needed...
     [Column(TypeName = "text")]
     public string? SemanticDescription { get; set; }
-    // ... other columns like DataType, ParentID etc.
+    [MaxLength(50)]
+    public string? DataType { get; set; }
+    [MaxLength(50)]
+    public string? BusinessRules { get; set; }
+    [MaxLength(50)]
+    public string? ParentID { get; set; }
 
     // Navigation property
     public virtual ICollection<SpecificationCore> SpecificationCores { get; set; } = [];

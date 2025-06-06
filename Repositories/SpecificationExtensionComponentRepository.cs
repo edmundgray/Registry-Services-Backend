@@ -14,6 +14,7 @@ public class SpecificationExtensionComponentRepository(RegistryDbContext context
     {
          var query = _dbSet
             .Where(sec => sec.IdentityID == specificationId)
+            .Include(sec => sec.ExtensionComponentModelElement) // Added Include statement
             .AsNoTracking()
             .OrderBy(sec => sec.ExtensionComponentID).ThenBy(sec => sec.BusinessTermID);
 

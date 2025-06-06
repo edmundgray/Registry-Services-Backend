@@ -16,7 +16,7 @@ public class SpecificationCoreRepository(RegistryDbContext context)
            .Where(sc => sc.IdentityID == specificationId)
            .Include(sc => sc.CoreInvoiceModel) // Eagerly load the CoreInvoiceModel
            .AsNoTracking()
-           .OrderBy(sc => sc.BusinessTermID); // Example ordering
+           .OrderBy(sc => sc.CoreInvoiceModel.RowPos); // Order by RowPos as specified in CoreInvoiceModel.cs
 
         return await PagedList<SpecificationCore>.CreateAsync(query, paginationParams.PageNumber, paginationParams.PageSize);
     }
@@ -24,9 +24,9 @@ public class SpecificationCoreRepository(RegistryDbContext context)
     public async Task<SpecificationCore?> GetByIdAndSpecificationIdAsync(int coreElementId, int specificationId)
     {
         // Find by composite logical key (PK + Parent FK)
-        // Include CoreInvoiceModel if you need these details when fetching a single item too
+        // Include CoreInvoiceModel to get the related details for the DTO mapping
         return await _dbSet
-                      .Include(sc => sc.CoreInvoiceModel)
+                      .Include(sc => sc.CoreInvoiceModel) // Eagerly load the CoreInvoiceModel
                       .FirstOrDefaultAsync(sc => sc.EntityID == coreElementId && sc.IdentityID == specificationId);
     }
 

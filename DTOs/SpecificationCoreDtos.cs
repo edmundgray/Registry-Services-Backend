@@ -34,16 +34,33 @@ public record SpecificationCoreDto(
     [Required][MaxLength(20)] string Cardinality,
     string? UsageNote, // MaxLength(10) removed
     [Required] string TypeOfChange,
-    // New fields from CoreInvoiceModel
     string? CoreBusinessTerm,
     string? CoreLevel,
-    string? CoreSemanticDescription
+    string? CoreBusinessRules, // Added BusinessRules from CoreInvoiceModel
+    string? CoreDataType, // Added DataType from CoreInvoiceModel
+    string? CoreSemanticDescription,
+    string? CoreParentID // NEW: Added ParentID from CoreInvoiceModel
 ) : SpecificationCoreBaseDto(BusinessTermID, Cardinality, UsageNote, TypeOfChange)
 {
     // Parameterless constructor for AutoMapper
     // It calls the primary constructor with default values.
     // AutoMapper will then populate these properties with the actual mapped values.
-    public SpecificationCoreDto() : this(0, 0, string.Empty, string.Empty, null, string.Empty, null, null, null) { }
+    // It calls the primary constructor with default values for all parameters.
+    public SpecificationCoreDto() : this(
+        0,                            // EntityID
+        0,                            // IdentityID
+        string.Empty,                 // BusinessTermID
+        string.Empty,                 // Cardinality
+        null,                         // UsageNote
+        string.Empty,                 // TypeOfChange
+        null,                         // CoreLevel
+        null,                         // CoreBusinessTerm
+        null,                         // CoreBusinessRules
+        null,                         // CoreDataType
+        null,                         // CoreSemanticDescription
+        null                          // CoreParentID // NEW: Added default for CoreParentID
+    )
+    { }
 }
 
 // Response for paginated list

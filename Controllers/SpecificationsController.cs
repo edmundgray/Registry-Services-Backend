@@ -56,6 +56,7 @@ namespace RegistryApi.Controllers
         // --- Specification Header Endpoints ---
 
         [HttpGet]
+        [AllowAnonymous] // This attribute makes this specific method publicly accessible
         [ProducesResponseType<PaginatedSpecificationHeaderResponse>(StatusCodes.Status200OK)]
         public async Task<Ok<PaginatedSpecificationHeaderResponse>> GetSpecifications([FromQuery] HelpersPaginationParams paginationParams)
         {

@@ -30,12 +30,19 @@ public class ExtensionComponentModelElement
 
     [Column(TypeName = "text")]
     public string? SemanticDescription { get; set; }
-
+    [Column(TypeName = "text")]
+    public string? UsageNoteCore { get; set; }
+    [Column(TypeName = "text")]
+    public string? UsageNoteExtension { get; set; }
+    [Column(TypeName = "text")]
+    public string? Justification { get; set; }
     // Add other properties as needed...
     [MaxLength(50)]
     public string? DataType { get; set; }
     [MaxLength(50)]
     public string? ExtensionType { get; set; }
+    [MaxLength(50)]
+    public string? ConformanceType { get; set; }
     [MaxLength(50)]
     public string? ParentID { get; set; }
 
