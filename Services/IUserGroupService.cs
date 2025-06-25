@@ -12,6 +12,7 @@ namespace RegistryApi.Services
         Task<ServiceResult> UpdateUserGroupAsync(int groupId, UserGroupUpdateDto updateDto);
         Task<ServiceResult> DeleteUserGroupAsync(int groupId); // Consider rules for deletion
         Task<UserGroupDto?> GetUserGroupByIdAsync(int groupId);
-        Task<IEnumerable<UserGroupDto>> GetAllUserGroupsAsync(PaginationParams paginationParams);
+        Task<IEnumerable<UserGroupDto>> GetAllUserGroupsAsync();
     }
 }
+

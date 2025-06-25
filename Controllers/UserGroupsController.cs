@@ -6,13 +6,13 @@ using System.Threading.Tasks;
 using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using RegistryApi.Helpers;// For StatusCodes
-using Microsoft.AspNetCore.Authorization; 
+using Microsoft.AspNetCore.Authorization;
 
 namespace RegistryApi.Controllers
 {
     [Route("api/usergroups")]
     [ApiController]
-    [Authorize(Roles = "Admin")] 
+    [Authorize(Roles = "Admin")]
     public class UserGroupsController : ControllerBase
     {
         private readonly IUserGroupService _userGroupService;
@@ -47,9 +47,9 @@ namespace RegistryApi.Controllers
         // GET: api/usergroups (Admin Only)
         [HttpGet]
         [ProducesResponseType<IEnumerable<UserGroupDto>>(StatusCodes.Status200OK)]
-        public async Task<Ok<IEnumerable<UserGroupDto>>> GetAllUserGroups([FromQuery] PaginationParams paginationParams)
+        public async Task<Ok<IEnumerable<UserGroupDto>>> GetAllUserGroups()
         {
-            var groups = await _userGroupService.GetAllUserGroupsAsync(paginationParams);
+            var groups = await _userGroupService.GetAllUserGroupsAsync();
             return TypedResults.Ok(groups);
         }
 

@@ -46,7 +46,8 @@ namespace RegistryApi.Services
                 _logger.LogError("Failed to save new user group with name {GroupName}", createDto.GroupName);
                 return (ServiceResult.BadRequest, null);
             }
-            return (ServiceResult.Success, _mapper.Map<UserGroupDto>(group));
+            var resultDto = new UserGroupDto(group.UserGroupID, group.GroupName, group.Description, group.CreatedDate, 0, 0, 0, 0, 0, 0);
+            return (ServiceResult.Success, resultDto);
         }
 
         public async Task<ServiceResult> UpdateUserGroupAsync(int groupId, UserGroupUpdateDto updateDto)
@@ -82,18 +83,6 @@ namespace RegistryApi.Services
                 return ServiceResult.NotFound;
             }
 
-            // Per plan: Prevent deletion if users are assigned (due to OnDelete.Restrict on User.UserGroupID FK)
-            // EF Core will throw an exception if users are in this group due to the FK constraint.
-            // We can check explicitly for a better error message if desired, but the DB will enforce it.
-            // Example explicit check:
-            // var usersInGroup = await _userRepository.GetAllAsync(); // This is inefficient, need a specific repo method
-            // if (usersInGroup.Any(u => u.UserGroupID == groupId))
-            // {
-            //     return ServiceResult.Conflict; // Users are still assigned to this group
-            // }
-
-
-            // Note: SpecificationIdentifyingInformation.UserGroupID is SetNull on delete, so that's handled by DB.
             try
             {
                 _userGroupRepository.Delete(group);
@@ -104,26 +93,22 @@ namespace RegistryApi.Services
                 }
                 return ServiceResult.Success;
             }
-            catch (DbUpdateException ex) // Catches errors from DB, like FK violations
+            catch (DbUpdateException ex)
             {
                 _logger.LogError(ex, "Failed to delete user group with ID {GroupId} due to a database update exception. It might be in use.", groupId);
-                // This will likely be triggered by the Restrict constraint if users are in the group.
-                return ServiceResult.Conflict; // Or BadRequest, depending on how you want to signal this
+                return ServiceResult.Conflict;
             }
         }
 
         public async Task<UserGroupDto?> GetUserGroupByIdAsync(int groupId)
         {
-            var group = await _userGroupRepository.GetByIdAsync(groupId);
-            return _mapper.Map<UserGroupDto>(group);
+            var groups = await _userGroupRepository.GetAllWithCountsAsync();
+            return groups.FirstOrDefault(g => g.UserGroupID == groupId);
         }
 
-        public async Task<IEnumerable<UserGroupDto>> GetAllUserGroupsAsync(PaginationParams paginationParams)
+        public async Task<IEnumerable<UserGroupDto>> GetAllUserGroupsAsync()
         {
-            // In a real app, you'd use a paginated method in the repository
-            var groups = await _userGroupRepository.GetAllAsync(); // This needs to be paginated
-            return _mapper.Map<IEnumerable<UserGroupDto>>(groups);
+            return await _userGroupRepository.GetAllWithCountsAsync();
         }
     }
 }
-

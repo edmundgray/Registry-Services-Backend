@@ -17,9 +17,17 @@ namespace RegistryApi.DTOs
         int UserGroupID,
         string GroupName,
         string? Description,
-        DateTime CreatedDate
+        DateTime CreatedDate,
+        // New statistical fields
+        int NumberUsers,
+        int NumberSpecifications,
+        int NumberInProgress,
+        int NumberSubmitted,
+        int NumberUnderReview,
+        int NumberVerified
     );
 
     // Could also have UserGroupWithUsersDto if needed
 }
+
 
