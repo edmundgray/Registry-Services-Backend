@@ -269,6 +269,7 @@ namespace RegistryApi.Controllers
         // --- Specification Core Element Endpoints ---
 
         [HttpGet("{specificationId:int}/coreElements")]
+        [AllowAnonymous] // This attribute makes this specific method publicly accessible
         [ProducesResponseType<PaginatedSpecificationCoreResponse>(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<Results<Ok<PaginatedSpecificationCoreResponse>, NotFound>> GetSpecificationCoreElements(
@@ -374,6 +375,7 @@ namespace RegistryApi.Controllers
         // --- Specification Extension Element Endpoints ---
 
         [HttpGet("{specificationId:int}/extensionElements")]
+        [AllowAnonymous] // This attribute makes this specific method publicly accessible
         [ProducesResponseType<PaginatedSpecificationExtensionResponse>(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<Results<Ok<PaginatedSpecificationExtensionResponse>, NotFound>> GetSpecificationExtensionElements(
