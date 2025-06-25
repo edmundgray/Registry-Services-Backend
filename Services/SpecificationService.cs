@@ -55,7 +55,7 @@ public class SpecificationService(
 
     public async Task<PaginatedSpecificationHeaderResponse> GetSpecificationsAsync(PaginationParams paginationParams)
     {
-        var pagedEntities = await specInfoRepo.GetAllPaginatedAsync(paginationParams);
+        var pagedEntities = await specInfoRepo.GetAllPaginatedAsync(paginationParams, includeSubmitted: false); // Ensure submitted are excluded
         var dtos = mapper.Map<List<SpecificationIdentifyingInformationHeaderDto>>(pagedEntities.Items);
 
         return new PaginatedSpecificationHeaderResponse(
@@ -70,6 +70,25 @@ public class SpecificationService(
             Items: dtos
         );
     }
+
+    public async Task<PaginatedSpecificationHeaderResponse> GetAdminSpecificationsAsync(PaginationParams paginationParams)
+    {
+        var pagedEntities = await specInfoRepo.GetAllPaginatedAsync(paginationParams, includeSubmitted: true);
+        var dtos = mapper.Map<List<SpecificationIdentifyingInformationHeaderDto>>(pagedEntities.Items);
+
+        return new PaginatedSpecificationHeaderResponse(
+            Metadata: new PaginationMetadata(
+                pagedEntities.TotalCount,
+                pagedEntities.PageSize,
+                pagedEntities.PageNumber,
+                pagedEntities.TotalPages,
+                pagedEntities.HasNextPage,
+                pagedEntities.HasPreviousPage
+            ),
+            Items: dtos
+        );
+    }
+
 
     public async Task<(ServiceResult Status, PaginatedSpecificationHeaderResponse? Response)> GetSpecificationsByUserGroupAsync(
         CurrentUserContext? currentUser, // Changed to nullable to handle potential null from controller

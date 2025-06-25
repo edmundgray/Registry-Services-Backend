@@ -14,6 +14,7 @@ public interface ISpecificationService
 {
     // Specification Header Methods
     Task<PaginatedSpecificationHeaderResponse> GetSpecificationsAsync(PaginationParams paginationParams);
+    Task<PaginatedSpecificationHeaderResponse> GetAdminSpecificationsAsync(PaginationParams paginationParams); // New Admin method
     Task<SpecificationIdentifyingInformationDetailDto?> GetSpecificationByIdAsync(int id, PaginationParams coreParams, PaginationParams extParams);
     Task<(ServiceResult Status, SpecificationIdentifyingInformationHeaderDto? Dto)> CreateSpecificationAsync(SpecificationIdentifyingInformationCreateDto createDto, CurrentUserContext? currentUser);
     Task<ServiceResult> UpdateSpecificationAsync(int id, SpecificationIdentifyingInformationUpdateDto updateDto, CurrentUserContext? currentUser);

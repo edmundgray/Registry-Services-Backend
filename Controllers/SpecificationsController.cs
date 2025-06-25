@@ -54,13 +54,28 @@ namespace RegistryApi.Controllers
         }
 
         // --- Specification Header Endpoints ---
-
+        /// <summary>
+        /// Gets a paginated list of publicly available specifications.
+        /// This excludes specifications with a 'Submitted' status that have not been checked by Admin.
+        /// </summary>
         [HttpGet]
         [AllowAnonymous] // This attribute makes this specific method publicly accessible
         [ProducesResponseType<PaginatedSpecificationHeaderResponse>(StatusCodes.Status200OK)]
         public async Task<Ok<PaginatedSpecificationHeaderResponse>> GetSpecifications([FromQuery] HelpersPaginationParams paginationParams)
         {
             var result = await _specificationService.GetSpecificationsAsync(paginationParams);
+            return TypedResults.Ok(result);
+        }
+        /// <summary>
+        /// Gets a paginated list of all available specifications.
+        /// This includes specifications with a 'Submitted' status that need to be checked by Admin.
+        /// </summary>
+        [HttpGet("all")]
+        [Authorize(Roles = "Admin")]
+        [ProducesResponseType<PaginatedSpecificationHeaderResponse>(StatusCodes.Status200OK)]
+        public async Task<Ok<PaginatedSpecificationHeaderResponse>> GetAdminSpecifications([FromQuery] HelpersPaginationParams paginationParams)
+        {
+            var result = await _specificationService.GetAdminSpecificationsAsync(paginationParams);
             return TypedResults.Ok(result);
         }
 
@@ -92,6 +107,7 @@ namespace RegistryApi.Controllers
         }
 
         [HttpGet("{id:int}")]
+        [AllowAnonymous] // This attribute makes this specific method publicly accessible
         [ProducesResponseType<SpecificationIdentifyingInformationDetailDto>(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         public async Task<Results<Ok<SpecificationIdentifyingInformationDetailDto>, NotFound>> GetSpecification(
