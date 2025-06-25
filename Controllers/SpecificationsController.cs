@@ -56,7 +56,7 @@ namespace RegistryApi.Controllers
         // --- Specification Header Endpoints ---
         /// <summary>
         /// Gets a paginated list of publicly available specifications.
-        /// This excludes specifications with a 'Submitted' status that have not been checked by Admin.
+        /// This excludes specifications with a 'Submitted' or 'In progress' status that have not been checked by Admin.
         /// </summary>
         [HttpGet]
         [AllowAnonymous] // This attribute makes this specific method publicly accessible
@@ -68,7 +68,7 @@ namespace RegistryApi.Controllers
         }
         /// <summary>
         /// Gets a paginated list of all available specifications.
-        /// This includes specifications with a 'Submitted' status that need to be checked by Admin.
+        /// This includes all specifications irrespective of status.
         /// </summary>
         [HttpGet("all")]
         [Authorize(Roles = "Admin")]

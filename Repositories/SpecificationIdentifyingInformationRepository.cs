@@ -11,13 +11,14 @@ namespace RegistryApi.Repositories;
 public class SpecificationIdentifyingInformationRepository(RegistryDbContext context)
     : GenericRepository<SpecificationIdentifyingInformation>(context), ISpecificationIdentifyingInformationRepository
 {
-    public async Task<PagedList<SpecificationIdentifyingInformation>> GetAllPaginatedAsync(PaginationParams paginationParams, bool includeSubmitted = false)
+    public async Task<PagedList<SpecificationIdentifyingInformation>> GetAllPaginatedAsync(PaginationParams paginationParams, bool includeSubmittedAndInProgress = false)
     {
         var query = _dbSet.AsNoTracking();
 
-        if (!includeSubmitted)
+        if (!includeSubmittedAndInProgress)
         {
-            query = query.Where(s => s.RegistrationStatus != "Submitted");
+            var excludedStatuses = new List<string> { "submitted", "in Progress" };
+            query = query.Where(s => s.RegistrationStatus == null || !excludedStatuses.Contains(s.RegistrationStatus.ToLower()));
         }
 
         // Generic SearchTerm Filter for SpecificationName, Purpose, and Sector
