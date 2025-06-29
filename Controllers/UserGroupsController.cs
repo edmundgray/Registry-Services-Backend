@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using Microsoft.AspNetCore.Http;
 using RegistryApi.Helpers;// For StatusCodes
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.Extensions.Logging;
 
 namespace RegistryApi.Controllers
 {
@@ -16,11 +17,13 @@ namespace RegistryApi.Controllers
     public class UserGroupsController : ControllerBase
     {
         private readonly IUserGroupService _userGroupService;
+        private readonly IUserService _userService;
         private readonly ILogger<UserGroupsController> _logger;
 
-        public UserGroupsController(IUserGroupService userGroupService, ILogger<UserGroupsController> logger)
+        public UserGroupsController(IUserGroupService userGroupService, IUserService userService, ILogger<UserGroupsController> logger)
         {
             _userGroupService = userGroupService;
+            _userService = userService;
             _logger = logger;
         }
 
@@ -61,6 +64,22 @@ namespace RegistryApi.Controllers
         {
             var group = await _userGroupService.GetUserGroupByIdAsync(id);
             return group == null ? TypedResults.NotFound() : TypedResults.Ok(group);
+        }
+
+        // GET: api/usergroups/{id}/users (Admin Only)
+        [HttpGet("{id:int}/users")]
+        [ProducesResponseType<IEnumerable<UserDto>>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<Results<Ok<IEnumerable<UserDto>>, NotFound>> GetUsersInGroup(int id)
+        {
+            var group = await _userGroupService.GetUserGroupByIdAsync(id);
+            if (group == null)
+            {
+                return TypedResults.NotFound();
+            }
+
+            var users = await _userService.GetUsersByGroupAsync(id);
+            return TypedResults.Ok(users);
         }
 
         // PUT: api/usergroups/{id} (Admin Only)

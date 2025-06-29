@@ -18,7 +18,7 @@ public class SpecificationIdentifyingInformationRepository(RegistryDbContext con
         if (!includeSubmittedAndInProgress)
         {
             var excludedStatuses = new List<string> { "submitted", "in Progress" };
-            query = query.Where(s => s.RegistrationStatus == null || !excludedStatuses.Contains(s.RegistrationStatus.ToLower()));
+            query = query.Where(s => s.RegistrationStatus == null || (s.RegistrationStatus.ToLower() != "submitted" && s.RegistrationStatus.ToLower() != "in progress"));
         }
 
         // Generic SearchTerm Filter for SpecificationName, Purpose, and Sector

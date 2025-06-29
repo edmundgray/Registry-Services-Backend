@@ -191,7 +191,11 @@ namespace RegistryApi.Services
             var users = await _userRepository.GetAllAsync();
             return _mapper.Map<IEnumerable<UserDto>>(users);
         }
-
+        public async Task<IEnumerable<UserDto>> GetUsersByGroupAsync(int groupId)
+        {
+            var users = await _userRepository.GetUsersByGroupIdAsync(groupId);
+            return _mapper.Map<IEnumerable<UserDto>>(users);
+        }
         public async Task<ServiceResult> AssignUserToGroupAsync(int userId, int? userGroupId)
         {
             var user = await _userRepository.GetByIdAsync(userId);

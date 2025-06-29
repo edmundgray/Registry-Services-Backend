@@ -21,6 +21,15 @@ namespace RegistryApi.Repositories
             return await _dbSet.FirstOrDefaultAsync(u => u.Email == email);
         }
 
+        public async Task<IEnumerable<User>> GetUsersByGroupIdAsync(int groupId)
+        {
+            return await _dbSet
+                .Where(u => u.UserGroupID == groupId)
+                .Include(u => u.UserGroup)
+                .AsNoTracking()
+                .ToListAsync();
+        }
+
         // Example implementation for other methods:
         // public async Task<IEnumerable<User>> GetActiveUsersAsync()
         // {

@@ -30,6 +30,10 @@ public class CoreInvoiceModel
     // Add other properties as needed...
     [Column(TypeName = "text")]
     public string? SemanticDescription { get; set; }
+
+    [Column(TypeName = "text")]
+    public string? UsageNote { get; set; } // ADDED THIS 
+
     [MaxLength(50)]
     public string? DataType { get; set; }
     [MaxLength(50)]

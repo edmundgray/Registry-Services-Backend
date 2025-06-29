@@ -13,6 +13,7 @@ namespace RegistryApi.Services
         Task<UserDto?> GetUserByIdAsync(int userId);
         Task<UserDto?> GetUserByUsernameAsync(string username);
         Task<IEnumerable<UserDto>> GetAllUsersAsync(PaginationParams paginationParams); // Admin action
+        Task<IEnumerable<UserDto>> GetUsersByGroupAsync(int groupId);// Admin action
         Task<ServiceResult> AssignUserToGroupAsync(int userId, int? userGroupId); // Admin action
         Task<ServiceResult> ChangeUserRoleAsync(int userId, string newRole); // Admin action
         Task<(ServiceResult Status, UserTokenDto? TokenDto, string? ErrorMessage)> AuthenticateUserAsync(UserLoginDto loginDto);
