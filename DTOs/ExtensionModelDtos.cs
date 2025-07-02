@@ -27,22 +27,16 @@ public record ExtensionComponentModelElementDto(
     [MaxLength(10)] string? Level,
     [MaxLength(20)] string? Cardinality,
     string? SemanticDescription,
+    string? UsageNoteCore,
+    string? UsageNoteExtension,
+    string? Justification,
     [MaxLength(50)] string? DataType,
     [MaxLength(50)] string? ExtensionType,
+    [MaxLength(50)] string? ConformanceType,
     [MaxLength(50)] string? ParentID
 )
 {
     // Parameterless constructor for AutoMapper
-    public ExtensionComponentModelElementDto() : this(0, string.Empty, string.Empty, string.Empty, null, null, null, null, null, null) { }
+    public ExtensionComponentModelElementDto() : this(0, string.Empty, string.Empty, string.Empty, null, null, null, null, null, null, null, null, null, null) { }
 }
 
-// You might also consider a paginated response DTO if not already covered by PagedList
-public record PaginatedExtensionComponentsModelHeaderResponse(
-    PaginationMetadata Metadata,
-    List<ExtensionComponentsModelHeaderDto> Items
-);
-
-public record PaginatedExtensionComponentModelElementResponse(
-    PaginationMetadata Metadata,
-    List<ExtensionComponentModelElementDto> Items
-);

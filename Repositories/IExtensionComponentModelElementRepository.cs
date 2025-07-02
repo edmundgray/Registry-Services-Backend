@@ -1,19 +1,17 @@
-﻿using RegistryApi.Models;
-using RegistryApi.DTOs;
-using RegistryApi.Helpers;
+﻿using RegistryApi.DTOs;
+using RegistryApi.Models;
+using System.Collections.Generic;
+using System.Threading.Tasks;
 
-namespace RegistryApi.Repositories;
-
-/// <summary>
-/// Interface for the ExtensionComponentModelElement repository.
-/// </summary>
-public interface IExtensionComponentModelElementRepository : IGenericRepository<ExtensionComponentModelElement>
+namespace RegistryApi.Repositories
 {
-    /// <summary>
-    /// Retrieves a paginated list of ExtensionComponentModelElement items filtered by ExtensionComponentID.
-    /// </summary>
-    /// <param name="extensionComponentId">The ID of the parent extension component.</param>
-    /// <param name="paginationParams">Parameters for pagination.</param>
-    /// <returns>A task that represents the asynchronous operation. The task result contains a paged list of ExtensionComponentModelElementDto.</returns>
-    Task<PagedList<ExtensionComponentModelElementDto>> GetByExtensionComponentIdAsync(string extensionComponentId, PaginationParams paginationParams);
+    public interface IExtensionComponentModelElementRepository
+    {
+        Task<IEnumerable<ExtensionComponentModelElementDto>> GetByExtensionComponentIdAsync(string extensionComponentId);
+        Task<ExtensionComponentModelElementDto> GetByIdAsync(int id);
+        Task<IEnumerable<ExtensionComponentModelElementDto>> GetAllAsync();
+        Task AddAsync(ExtensionComponentModelElement entity);
+        Task UpdateAsync(ExtensionComponentModelElement entity);
+        Task DeleteAsync(int id);
+    }
 }

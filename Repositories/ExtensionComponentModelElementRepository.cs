@@ -1,34 +1,67 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using AutoMapper;
+using AutoMapper.QueryableExtensions;
+using Microsoft.EntityFrameworkCore;
 using RegistryApi.Data;
 using RegistryApi.DTOs;
-using RegistryApi.Helpers;
 using RegistryApi.Models;
-using AutoMapper; // Required for mapping
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading.Tasks;
 
-namespace RegistryApi.Repositories;
-
-public class ExtensionComponentModelElementRepository(RegistryDbContext context, IMapper mapper)
-    : GenericRepository<ExtensionComponentModelElement>(context), IExtensionComponentModelElementRepository
+namespace RegistryApi.Repositories
 {
-    private readonly IMapper _mapper = mapper;
-
-    public async Task<PagedList<ExtensionComponentModelElementDto>> GetByExtensionComponentIdAsync(string extensionComponentId, PaginationParams paginationParams)
+    public class ExtensionComponentModelElementRepository : IExtensionComponentModelElementRepository
     {
-        var query = _dbSet
-            .Where(e => e.ExtensionComponentID == extensionComponentId)
-            .AsNoTracking()
-            .OrderBy(e => e.BusinessTerm) // Order by BusinessTerm for example
-            .ThenBy(e => e.BusinessTermID); // Secondary sort
+        private readonly RegistryDbContext _context;
+        private readonly IMapper _mapper;
 
-        var pagedEntities = await PagedList<ExtensionComponentModelElement>.CreateAsync(query, paginationParams.PageNumber, paginationParams.PageSize);
+        public ExtensionComponentModelElementRepository(RegistryDbContext context, IMapper mapper)
+        {
+            _context = context;
+            _mapper = mapper;
+        }
 
-        // Map the paged entities to DTOs
-        var pagedDtos = new PagedList<ExtensionComponentModelElementDto>(
-            _mapper.Map<List<ExtensionComponentModelElementDto>>(pagedEntities.Items),
-            pagedEntities.TotalCount,
-            pagedEntities.PageNumber,
-            pagedEntities.PageSize
-        );
-        return pagedDtos;
+        public async Task<IEnumerable<ExtensionComponentModelElementDto>> GetByExtensionComponentIdAsync(string extensionComponentId)
+        {
+            return await _context.ExtensionComponentModelElements
+                                 .Where(e => e.ExtensionComponentID == extensionComponentId)
+                                 .AsNoTracking()
+                                 .ProjectTo<ExtensionComponentModelElementDto>(_mapper.ConfigurationProvider)
+                                 .ToListAsync();
+        }
+
+        public async Task<ExtensionComponentModelElementDto> GetByIdAsync(int id)
+        {
+            var element = await _context.ExtensionComponentModelElements
+                                        .AsNoTracking()
+                                        .FirstOrDefaultAsync(e => e.EntityID == id);
+            return _mapper.Map<ExtensionComponentModelElementDto>(element);
+        }
+
+        public async Task<IEnumerable<ExtensionComponentModelElementDto>> GetAllAsync()
+        {
+            return await _context.ExtensionComponentModelElements
+                                 .AsNoTracking()
+                                 .ProjectTo<ExtensionComponentModelElementDto>(_mapper.ConfigurationProvider)
+                                 .ToListAsync();
+        }
+
+        public Task AddAsync(ExtensionComponentModelElement entity)
+        {
+            // Implementation for adding an entity
+            throw new System.NotImplementedException();
+        }
+
+        public Task UpdateAsync(ExtensionComponentModelElement entity)
+        {
+            // Implementation for updating an entity
+            throw new System.NotImplementedException();
+        }
+
+        public Task DeleteAsync(int id)
+        {
+            // Implementation for deleting an entity
+            throw new System.NotImplementedException();
+        }
     }
 }

@@ -1,13 +1,11 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.HttpResults;
 using RegistryApi.DTOs;
 using RegistryApi.Repositories;
-using RegistryApi.Helpers;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using AutoMapper;
-using Microsoft.AspNetCore.Authorization;
 
 namespace RegistryApi.Controllers
 {
@@ -34,81 +32,35 @@ namespace RegistryApi.Controllers
 
         // GET: api/extensionmodels/headers
         [HttpGet("headers")]
-        [ProducesResponseType<PaginatedExtensionComponentsModelHeaderResponse>(StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<Results<Ok<PaginatedExtensionComponentsModelHeaderResponse>, BadRequest<string>>> GetExtensionComponentHeaders([FromQuery] PaginationParams paginationParams)
+        [ProducesResponseType<IEnumerable<ExtensionComponentsModelHeaderDto>>(StatusCodes.Status200OK)]
+        public async Task<ActionResult<IEnumerable<ExtensionComponentsModelHeaderDto>>> GetExtensionComponentHeaders()
         {
-            if (!ModelState.IsValid)
-            {
-                _logger.LogWarning("Invalid pagination parameters received for GetExtensionComponentHeaders.");
-                return TypedResults.BadRequest("Invalid pagination parameters.");
-            }
-
-            var pagedEntities = await _headerRepository.GetAllAsync(paginationParams);
-
-            // Construct the PaginatedExtensionComponentsModelHeaderResponse
-            var response = new PaginatedExtensionComponentsModelHeaderResponse(
-                Metadata: new PaginationMetadata(
-                    pagedEntities.TotalCount,
-                    pagedEntities.PageSize,
-                    pagedEntities.PageNumber,
-                    pagedEntities.TotalPages,
-                    pagedEntities.HasNextPage,
-                    pagedEntities.HasPreviousPage
-                ),
-                Items: pagedEntities.Items // Items are already DTOs from the repository
-            );
-
-            return TypedResults.Ok(response);
+            var headers = await _headerRepository.GetAllAsync();
+            return Ok(headers);
         }
 
         // GET: api/extensionmodels/elements/{extensionComponentId}
         [HttpGet("elements/{extensionComponentId}")]
-        [ProducesResponseType<PaginatedExtensionComponentModelElementResponse>(StatusCodes.Status200OK)]
+        [ProducesResponseType<IEnumerable<ExtensionComponentModelElementDto>>(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<Results<Ok<PaginatedExtensionComponentModelElementResponse>, BadRequest<string>, NotFound>> GetExtensionComponentElements(
-            string extensionComponentId,
-            [FromQuery] PaginationParams paginationParams)
+        public async Task<ActionResult<IEnumerable<ExtensionComponentModelElementDto>>> GetExtensionComponentElements(string extensionComponentId)
         {
             if (string.IsNullOrWhiteSpace(extensionComponentId))
             {
                 _logger.LogWarning("ExtensionComponentId cannot be empty for GetExtensionComponentElements.");
-                return TypedResults.BadRequest("ExtensionComponentId cannot be empty.");
+                return BadRequest("ExtensionComponentId cannot be empty.");
             }
 
-            if (!ModelState.IsValid)
-            {
-                _logger.LogWarning("Invalid pagination parameters received for GetExtensionComponentElements for ExtensionComponentId: {ExtensionComponentId}.", extensionComponentId);
-                return TypedResults.BadRequest("Invalid pagination parameters.");
-            }
-
-            // Use the new GetByIdAsync(string id) from the header repository
             var headerExists = await _headerRepository.GetByIdAsync(extensionComponentId) != null;
             if (!headerExists)
             {
                 _logger.LogInformation("ExtensionComponentsModelHeader with ID {ExtensionComponentId} not found when trying to fetch elements.", extensionComponentId);
-                return TypedResults.NotFound();
+                return NotFound();
             }
 
-            var pagedElements = await _elementRepository.GetByExtensionComponentIdAsync(extensionComponentId, paginationParams);
-
-            // Construct the PaginatedExtensionComponentModelElementResponse
-            var response = new PaginatedExtensionComponentModelElementResponse(
-                Metadata: new PaginationMetadata(
-                    pagedElements.TotalCount,
-                    pagedElements.PageSize,
-                    pagedElements.PageNumber,
-                    pagedElements.TotalPages,
-                    pagedElements.HasNextPage,
-                    pagedElements.HasPreviousPage
-                ),
-                Items: pagedElements.Items // Items are already DTOs from the repository
-            );
-
-            // If the header exists, but it has no elements, still return OK with an empty list.
-            // This is generally preferred for list endpoints when the filter is valid.
-            return TypedResults.Ok(response);
+            var elements = await _elementRepository.GetByExtensionComponentIdAsync(extensionComponentId);
+            return Ok(elements);
         }
     }
 }
