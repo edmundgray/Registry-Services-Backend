@@ -15,22 +15,22 @@ public interface ISpecificationService
     // Specification Header Methods
     Task<PaginatedSpecificationHeaderResponse> GetSpecificationsAsync(PaginationParams paginationParams);
     Task<PaginatedSpecificationHeaderResponse> GetAdminSpecificationsAsync(PaginationParams paginationParams); // New Admin method
-    Task<SpecificationIdentifyingInformationDetailDto?> GetSpecificationByIdAsync(int id, PaginationParams coreParams, PaginationParams extParams);
+    Task<SpecificationIdentifyingInformationDetailDto?> GetSpecificationByIdAsync(int id);
     Task<(ServiceResult Status, SpecificationIdentifyingInformationHeaderDto? Dto)> CreateSpecificationAsync(SpecificationIdentifyingInformationCreateDto createDto, CurrentUserContext? currentUser);
     Task<ServiceResult> UpdateSpecificationAsync(int id, SpecificationIdentifyingInformationUpdateDto updateDto, CurrentUserContext? currentUser);
     Task<DeleteResult> DeleteSpecificationAsync(int id, CurrentUserContext? currentUser);
-    Task<ServiceResult> AssignSpecificationToGroupAsync(int specificationId, int? userGroupId, CurrentUserContext? currentUser); // New Admin method
-    Task<(ServiceResult Status, PaginatedSpecificationHeaderResponse? Response)> GetSpecificationsByUserGroupAsync(CurrentUserContext currentUser, PaginationParams paginationParams); // New Method
+    Task<ServiceResult> AssignSpecificationToGroupAsync(int specificationId, int userGroupId, CurrentUserContext? currentUser); // New Admin method
+    Task<(ServiceResult Status, IEnumerable<SpecificationIdentifyingInformationHeaderDto>? Response)> GetSpecificationsByUserGroupAsync(CurrentUserContext currentUser);
 
     // Specification Core Methods
-    Task<PaginatedSpecificationCoreResponse?> GetSpecificationCoresAsync(int specificationId, PaginationParams paginationParams);
+    Task<IEnumerable<SpecificationCoreDto>?> GetSpecificationCoresAsync(int specificationId);
     Task<SpecificationCoreDto?> GetSpecificationCoreByIdAsync(int specificationId, int coreElementId);
     Task<(ServiceResult Status, SpecificationCoreDto? Dto)> AddCoreElementAsync(int specificationId, SpecificationCoreCreateDto createDto, CurrentUserContext? currentUser);
     Task<ServiceResult> UpdateCoreElementAsync(int specificationId, int coreElementId, SpecificationCoreUpdateDto updateDto, CurrentUserContext? currentUser);
     Task<ServiceResult> DeleteCoreElementAsync(int specificationId, int coreElementId, CurrentUserContext? currentUser);
 
     // Specification Extension Methods
-    Task<PaginatedSpecificationExtensionResponse?> GetSpecificationExtensionsAsync(int specificationId, PaginationParams paginationParams);
+    Task<IEnumerable<SpecificationExtensionComponentDto>?> GetSpecificationExtensionsAsync(int specificationId);
     Task<SpecificationExtensionComponentDto?> GetSpecificationExtensionByIdAsync(int specificationId, int extensionElementId);
     Task<(ServiceResult Status, SpecificationExtensionComponentDto? Dto)> AddExtensionElementAsync(int specificationId, SpecificationExtensionComponentCreateDto createDto, CurrentUserContext? currentUser);
     Task<ServiceResult> UpdateExtensionElementAsync(int specificationId, int extensionElementId, SpecificationExtensionComponentUpdateDto updateDto, CurrentUserContext? currentUser);

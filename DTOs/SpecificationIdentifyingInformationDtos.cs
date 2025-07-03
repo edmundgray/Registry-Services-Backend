@@ -13,7 +13,7 @@ public record SpecificationIdentifyingInformationCreateDto(
     [MaxLength(50)] string? SpecificationVersion,
     [Required] string ContactInformation,
     DateTime? DateOfImplementation,
-    [Required] int? UserGroupID,
+    [Required] int UserGroupID,
     [MaxLength(50)] string? CoreVersion,
     [MaxLength(255)] string? SpecificationSourceLink,
     [MaxLength(200)] string? Country,
@@ -35,7 +35,7 @@ public record SpecificationIdentifyingInformationUpdateDto(
     [MaxLength(50)] string? SpecificationVersion,
     [Required] string ContactInformation,
     DateTime? DateOfImplementation,
-    [Required] int? UserGroupID,
+    [Required] int UserGroupID,
     [MaxLength(50)] string? CoreVersion,
     [MaxLength(255)] string? SpecificationSourceLink,
     [MaxLength(200)] string? Country,
@@ -65,10 +65,10 @@ public record SpecificationIdentifyingInformationHeaderDto(
     string? Purpose,
     string? PreferredSyntax,
     string? GoverningEntity, // This is now UserGroupID in the model, the group name is used as GoverningEntity
-    int? UserGroupID
+    int UserGroupID
 )
 {
-    public SpecificationIdentifyingInformationHeaderDto() : this(0, string.Empty, string.Empty, string.Empty, null, null, null, DateTime.MinValue, DateTime.MinValue, default!, default!, default!, default!, default!, default!, default!, null) { }
+    public SpecificationIdentifyingInformationHeaderDto() : this(0, string.Empty, string.Empty, string.Empty, null, null, null, DateTime.MinValue, DateTime.MinValue, default!, default!, default!, default!, default!, default!, default!, 0) { }
 }
 
 public record PaginatedSpecificationHeaderResponse(
@@ -88,7 +88,7 @@ public record SpecificationIdentifyingInformationDetailDto(
     string Purpose,
     string ContactInformation,
     string? GoverningEntity,
-    int? UserGroupID,
+    int UserGroupID,
     string? CoreVersion,
     string? SpecificationSourceLink,
     bool IsCountrySpecification,
@@ -100,13 +100,13 @@ public record SpecificationIdentifyingInformationDetailDto(
     string? RegistrationStatus,
     string? SpecificationType,
     string? ConformanceLevel,
-    PaginatedSpecificationCoreResponse SpecificationCores,
-    PaginatedSpecificationExtensionResponse SpecificationExtensionComponents
+    ICollection<SpecificationCoreDto> SpecificationCores,
+    ICollection<SpecificationExtensionComponentDto> SpecificationExtensionComponents
 )
 {
     public SpecificationIdentifyingInformationDetailDto() : this(
         0, string.Empty, string.Empty, string.Empty, null, null, null, null, string.Empty, string.Empty,
-        null, null, null, null, false, null, null, DateTime.MinValue, DateTime.MinValue,
+        null, 0, null, null, false, null, null, DateTime.MinValue, DateTime.MinValue,
         null, null, null, null,
         default!, default!
     )

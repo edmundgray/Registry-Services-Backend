@@ -68,14 +68,30 @@ public class SpecificationIdentifyingInformationRepository(RegistryDbContext con
         return await PagedList<SpecificationIdentifyingInformation>.CreateAsync(query, paginationParams.PageNumber, paginationParams.PageSize);
     }
 
-    public async Task<PagedList<SpecificationIdentifyingInformation>> GetByUserGroupIdPaginatedAsync(int userGroupId, PaginationParams paginationParams)
+    public async Task<IEnumerable<SpecificationIdentifyingInformation>> GetAllAsync(bool includeSubmittedAndInProgress = false)
     {
-        var query = _dbSet
+        var query = _dbSet.Include(s => s.UserGroup).AsNoTracking();
+
+        if (!includeSubmittedAndInProgress)
+        {
+            query = query.Where(s => s.RegistrationStatus == null || (s.RegistrationStatus.ToLower() != "submitted" && s.RegistrationStatus.ToLower() != "in progress"));
+        }
+
+        // You can add back ordering if you wish
+        query = query.OrderByDescending(s => s.ModifiedDate);
+
+        return await query.ToListAsync();
+    }
+
+
+    public async Task<IEnumerable<SpecificationIdentifyingInformation>> GetByUserGroupIdAsync(int userGroupId)
+    {
+        return await _dbSet
             .Where(s => s.UserGroupID == userGroupId)
-            .Include(s => s.UserGroup) // UPDATED
+            .Include(s => s.UserGroup)
             .AsNoTracking()
-            .OrderBy(s => s.SpecificationIdentifier);
-        return await PagedList<SpecificationIdentifyingInformation>.CreateAsync(query, paginationParams.PageNumber, paginationParams.PageSize);
+            .OrderBy(s => s.SpecificationIdentifier)
+            .ToListAsync();
     }
 
     public override async Task<SpecificationIdentifyingInformation?> GetByIdAsync(int id)

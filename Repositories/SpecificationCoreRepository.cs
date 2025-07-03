@@ -10,6 +10,15 @@ namespace RegistryApi.Repositories;
 public class SpecificationCoreRepository(RegistryDbContext context)
     : GenericRepository<SpecificationCore>(context), ISpecificationCoreRepository
 {
+    public async Task<IEnumerable<SpecificationCore>> GetAllBySpecificationIdAsync(int specificationId)
+    {
+        return await _dbSet
+           .Where(sc => sc.IdentityID == specificationId)
+           .Include(sc => sc.CoreInvoiceModel)
+           .AsNoTracking()
+           .OrderBy(sc => sc.CoreInvoiceModel.RowPos)
+           .ToListAsync();
+    }
     public async Task<PagedList<SpecificationCore>> GetBySpecificationIdPaginatedAsync(int specificationId, PaginationParams paginationParams)
     {
         var query = _dbSet

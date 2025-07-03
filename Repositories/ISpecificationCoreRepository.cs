@@ -9,4 +9,6 @@ public interface ISpecificationCoreRepository : IGenericRepository<Specification
      Task<PagedList<SpecificationCore>> GetBySpecificationIdPaginatedAsync(int specificationId, PaginationParams paginationParams);
      Task<SpecificationCore?> GetByIdAndSpecificationIdAsync(int coreElementId, int specificationId);
      Task<bool> CoreInvoiceModelExistsAsync(string businessTermId);
+
+    Task<IEnumerable<SpecificationCore>> GetAllBySpecificationIdAsync(int specificationId);
 }

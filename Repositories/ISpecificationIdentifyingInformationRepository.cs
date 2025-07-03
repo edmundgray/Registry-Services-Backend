@@ -9,7 +9,9 @@ public interface ISpecificationIdentifyingInformationRepository : IGenericReposi
 {
 
     Task<PagedList<SpecificationIdentifyingInformation>> GetAllPaginatedAsync(PaginationParams paginationParams, bool includeSubmitted = false);
-    Task<PagedList<SpecificationIdentifyingInformation>> GetByUserGroupIdPaginatedAsync(int userGroupId, PaginationParams paginationParams); 
+    Task<IEnumerable<SpecificationIdentifyingInformation>> GetByUserGroupIdAsync(int userGroupId);
+    Task<IEnumerable<SpecificationIdentifyingInformation>> GetAllAsync(bool includeSubmittedAndInProgress = false);
+
     Task<bool> HasCoreElementsAsync(int id);
     Task<bool> HasExtensionComponentsAsync(int id);
     Task<bool> ExistsAsync(int id);

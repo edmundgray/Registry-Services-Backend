@@ -69,8 +69,3 @@ public record SpecificationExtensionComponentDto(
     { }
 }
 
-// Response for paginated list
-public record PaginatedSpecificationExtensionResponse(
-    PaginationMetadata Metadata,
-    List<SpecificationExtensionComponentDto> Items
-);

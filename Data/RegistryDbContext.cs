@@ -109,8 +109,8 @@ public class RegistryDbContext(DbContextOptions<RegistryDbContext> options) : Db
             entity.HasOne(s => s.UserGroup)
                   .WithMany(g => g.Specifications) // Assumes UserGroup has an ICollection<SpecificationIdentifyingInformation> Specifications
                   .HasForeignKey(s => s.UserGroupID)
-                  .IsRequired(false) // UserGroupID is nullable in SpecificationIdentifyingInformation
-                  .OnDelete(DeleteBehavior.SetNull); // If UserGroup is deleted, set UserGroupID in Spec to NULL
+                  .IsRequired(true) // UserGroupID is required as foreign key in SpecificationIdentifyingInformation to ensure every specification has a governing entity
+                  .OnDelete(DeleteBehavior.Restrict); // If UserGroup is deleted, set UserGroupID in Spec to NULL
         });
 
         // If you decide to implement the CreatorUserID for the User.CreatedSpecifications navigation property:

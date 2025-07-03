@@ -9,4 +9,6 @@ public interface ISpecificationExtensionComponentRepository : IGenericRepository
      Task<PagedList<SpecificationExtensionComponent>> GetBySpecificationIdPaginatedAsync(int specificationId, PaginationParams paginationParams);
      Task<SpecificationExtensionComponent?> GetByIdAndSpecificationIdAsync(int extensionElementId, int specificationId);
      Task<bool> ExtensionElementExistsAsync(string extensionComponentId, string businessTermId);
+
+    Task<IEnumerable<SpecificationExtensionComponent>> GetAllBySpecificationIdAsync(int specificationId);
 }

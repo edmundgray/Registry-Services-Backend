@@ -80,28 +80,25 @@ namespace RegistryApi.Controllers
         }
 
         [HttpGet("by-user-group")]
-        [ProducesResponseType<PaginatedSpecificationHeaderResponse>(StatusCodes.Status200OK)]
+        [ProducesResponseType<IEnumerable<SpecificationIdentifyingInformationHeaderDto>>(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
-        public async Task<Results<Ok<PaginatedSpecificationHeaderResponse>, ForbidHttpResult, BadRequest<string>, UnauthorizedHttpResult>> GetSpecificationsByUserGroup(
-            [FromQuery] HelpersPaginationParams paginationParams)
+        public async Task<Results<Ok<IEnumerable<SpecificationIdentifyingInformationHeaderDto>>, ForbidHttpResult, BadRequest<string>, UnauthorizedHttpResult>> GetSpecificationsByUserGroup()
         {
             var currentUser = GetCurrentUserContextFromClaims();
             if (currentUser == null)
             {
-                // This case implies an issue with token claims or if User.Identity is somehow not authenticated
-                // despite [Authorize]. The [Authorize] attribute should handle unauthenticated requests by returning 401.
-                _logger.LogWarning("GetSpecificationsByUserGroup called by an authenticated user with missing/invalid claims.");
-                return TypedResults.Unauthorized(); // Or BadRequest depending on how strictly you want to handle malformed tokens
+                // ...
+                return TypedResults.Unauthorized();
             }
 
-            var (status, response) = await _specificationService.GetSpecificationsByUserGroupAsync(currentUser, paginationParams);
+            var (status, response) = await _specificationService.GetSpecificationsByUserGroupAsync(currentUser);
 
             return status switch
             {
                 ServiceResult.Success => TypedResults.Ok(response!),
                 ServiceResult.Forbidden => TypedResults.Forbid(),
-                ServiceResult.Unauthorized => TypedResults.Unauthorized(), // If service layer explicitly deems it unauthorized
+                ServiceResult.Unauthorized => TypedResults.Unauthorized(),
                 _ => TypedResults.BadRequest("Could not retrieve specifications for the user group.")
             };
         }
@@ -110,12 +107,9 @@ namespace RegistryApi.Controllers
         [AllowAnonymous] // This attribute makes this specific method publicly accessible
         [ProducesResponseType<SpecificationIdentifyingInformationDetailDto>(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<Results<Ok<SpecificationIdentifyingInformationDetailDto>, NotFound>> GetSpecification(
-            int id,
-            [FromQuery] HelpersPaginationParams coreParams,
-            [FromQuery] HelpersPaginationParams extParams)
+        public async Task<Results<Ok<SpecificationIdentifyingInformationDetailDto>, NotFound>> GetSpecification(int id)
         {
-            var specification = await _specificationService.GetSpecificationByIdAsync(id, coreParams, extParams);
+            var specification = await _specificationService.GetSpecificationByIdAsync(id);
             return specification == null ? TypedResults.NotFound() : TypedResults.Ok(specification);
         }
 
@@ -209,7 +203,7 @@ namespace RegistryApi.Controllers
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status403Forbidden)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<Results<NoContent, BadRequest<string>, NotFound, ForbidHttpResult, UnauthorizedHttpResult>> AssignSpecificationToGroup(int id, int? groupId)
+        public async Task<Results<NoContent, BadRequest<string>, NotFound, ForbidHttpResult, UnauthorizedHttpResult>> AssignSpecificationToGroup(int id, int groupId)
         {
             var currentUser = GetCurrentUserContextFromClaims(); // Context still useful for logging, etc.
             if (currentUser == null) // Should be caught by [Authorize] but good for robustness
@@ -236,50 +230,18 @@ namespace RegistryApi.Controllers
             };
         }
 
-        [HttpPut("{id:int}/remove-group")]
-        [Authorize(Roles = "Admin")]
-        [ProducesResponseType(StatusCodes.Status204NoContent)]
-        [ProducesResponseType(StatusCodes.Status403Forbidden)]
-        [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<Results<NoContent, NotFound, ForbidHttpResult, BadRequest<string>, UnauthorizedHttpResult>> RemoveSpecificationFromGroup(int id)
-        {
-            var currentUser = GetCurrentUserContextFromClaims();
-            if (currentUser == null)
-            {
-                _logger.LogWarning("RemoveSpecificationFromGroup called by an unauthenticated user or token with missing claims.");
-                return TypedResults.Unauthorized();
-            }
-            if (currentUser.Role != "Admin")
-            {
-                return TypedResults.Forbid();
-            }
 
-            var result = await _specificationService.AssignSpecificationToGroupAsync(id, null, currentUser);
-
-            return result switch
-            {
-                ServiceResult.Success => TypedResults.NoContent(),
-                ServiceResult.NotFound => TypedResults.NotFound(),
-                ServiceResult.Forbidden => TypedResults.Forbid(),
-                ServiceResult.Unauthorized => TypedResults.Unauthorized(),
-                _ => TypedResults.BadRequest("Could not remove specification from group.")
-            };
-        }
 
         // --- Specification Core Element Endpoints ---
 
         [HttpGet("{specificationId:int}/coreElements")]
-        [AllowAnonymous] // This attribute makes this specific method publicly accessible
-        [ProducesResponseType<PaginatedSpecificationCoreResponse>(StatusCodes.Status200OK)]
+        [AllowAnonymous]
+        [ProducesResponseType<IEnumerable<SpecificationCoreDto>>(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<Results<Ok<PaginatedSpecificationCoreResponse>, NotFound>> GetSpecificationCoreElements(
-            int specificationId,
-            [FromQuery] HelpersPaginationParams paginationParams)
+        public async Task<Results<Ok<IEnumerable<SpecificationCoreDto>>, NotFound>> GetSpecificationCoreElements(
+    int specificationId)
         {
-            // Permissions for viewing core elements might depend on ability to view parent specification.
-            // The service layer should handle this if GetSpecificationCoresAsync needs user context.
-            // For now, assuming if they can hit this (authenticated), they can view.
-            var result = await _specificationService.GetSpecificationCoresAsync(specificationId, paginationParams);
+            var result = await _specificationService.GetSpecificationCoresAsync(specificationId);
             return result == null ? TypedResults.NotFound() : TypedResults.Ok(result);
         }
 
@@ -375,14 +337,13 @@ namespace RegistryApi.Controllers
         // --- Specification Extension Element Endpoints ---
 
         [HttpGet("{specificationId:int}/extensionElements")]
-        [AllowAnonymous] // This attribute makes this specific method publicly accessible
-        [ProducesResponseType<PaginatedSpecificationExtensionResponse>(StatusCodes.Status200OK)]
+        [AllowAnonymous]
+        [ProducesResponseType<IEnumerable<SpecificationExtensionComponentDto>>(StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<Results<Ok<PaginatedSpecificationExtensionResponse>, NotFound>> GetSpecificationExtensionElements(
-           int specificationId,
-           [FromQuery] HelpersPaginationParams paginationParams)
+        public async Task<Results<Ok<IEnumerable<SpecificationExtensionComponentDto>>, NotFound>> GetSpecificationExtensionElements(
+   int specificationId)
         {
-            var result = await _specificationService.GetSpecificationExtensionsAsync(specificationId, paginationParams);
+            var result = await _specificationService.GetSpecificationExtensionsAsync(specificationId);
             return result == null ? TypedResults.NotFound() : TypedResults.Ok(result);
         }
 

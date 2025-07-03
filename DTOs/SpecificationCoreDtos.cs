@@ -63,8 +63,3 @@ public record SpecificationCoreDto(
     { }
 }
 
-// Response for paginated list
-public record PaginatedSpecificationCoreResponse(
-    PaginationMetadata Metadata,
-    List<SpecificationCoreDto> Items
-);

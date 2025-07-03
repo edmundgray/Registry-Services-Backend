@@ -37,7 +37,7 @@ public class SpecificationIdentifyingInformation
     // This property is REMOVED and replaced with UserGroupID
     // public string? GoverningEntity { get; set; }
     [Required]
-    public int? UserGroupID { get; set; } // non Nullable Foreign Key to UserGroup where groupName = GoverningEntity
+    public int UserGroupID { get; set; } // non Nullable Foreign Key to UserGroup where groupName = GoverningEntity
 
     [MaxLength(50)]
     public string? CoreVersion { get; set; }

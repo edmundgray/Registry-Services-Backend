@@ -42,7 +42,7 @@ public class SpecificationService(
             return false;
         }
 
-        bool canEdit = spec.UserGroupID.HasValue && spec.UserGroupID == currentUser.UserGroupId;
+        bool canEdit = spec.UserGroupID == currentUser.UserGroupId;
         if (!canEdit)
         {
             logger.LogWarning("User {UserId} (Role: {UserRole}, Group: {UserGroupId}) does not have permission to edit specification {SpecificationId} (Owned by Group: {OwnerGroupId}).",
@@ -125,9 +125,8 @@ public class SpecificationService(
         );
     }
 
-    public async Task<(ServiceResult Status, PaginatedSpecificationHeaderResponse? Response)> GetSpecificationsByUserGroupAsync(
-        CurrentUserContext? currentUser,
-        PaginationParams paginationParams)
+    public async Task<(ServiceResult Status, IEnumerable<SpecificationIdentifyingInformationHeaderDto>? Response)> GetSpecificationsByUserGroupAsync(
+    CurrentUserContext? currentUser)
     {
         if (currentUser == null)
         {
@@ -135,11 +134,12 @@ public class SpecificationService(
             return (ServiceResult.Unauthorized, null);
         }
 
-        PagedList<SpecificationIdentifyingInformation> pagedEntities;
+        IEnumerable<SpecificationIdentifyingInformation> entities;
 
         if (currentUser.Role == "Admin")
         {
-            pagedEntities = await specInfoRepo.GetAllPaginatedAsync(paginationParams);
+            // Assuming you want the admin to get all specifications here, including unsubmitted ones
+            entities = await specInfoRepo.GetAllAsync(true);
         }
         else if (currentUser.Role == "User")
         {
@@ -148,7 +148,8 @@ public class SpecificationService(
                 logger.LogWarning("User {UserId} (Role: User) attempted to get group specifications but has no UserGroupID.", currentUser.UserId);
                 return (ServiceResult.Forbidden, null);
             }
-            pagedEntities = await specInfoRepo.GetByUserGroupIdPaginatedAsync(currentUser.UserGroupId.Value, paginationParams);
+            // Calls the new non-paginated repository method (see Step 3)
+            entities = await specInfoRepo.GetByUserGroupIdAsync(currentUser.UserGroupId.Value);
         }
         else
         {
@@ -156,22 +157,12 @@ public class SpecificationService(
             return (ServiceResult.Unauthorized, null);
         }
 
-        var dtos = mapper.Map<List<SpecificationIdentifyingInformationHeaderDto>>(pagedEntities.Items);
-        var response = new PaginatedSpecificationHeaderResponse(
-            Metadata: new PaginationMetadata(
-                pagedEntities.TotalCount,
-                pagedEntities.PageSize,
-                pagedEntities.PageNumber,
-                pagedEntities.TotalPages,
-                pagedEntities.HasNextPage,
-                pagedEntities.HasPreviousPage
-            ),
-            Items: dtos
-        );
-        return (ServiceResult.Success, response);
+        var dtos = mapper.Map<IEnumerable<SpecificationIdentifyingInformationHeaderDto>>(entities);
+        return (ServiceResult.Success, dtos);
     }
 
-    public async Task<SpecificationIdentifyingInformationDetailDto?> GetSpecificationByIdAsync(int id, PaginationParams coreParams, PaginationParams extParams)
+
+    public async Task<SpecificationIdentifyingInformationDetailDto?> GetSpecificationByIdAsync(int id)
     {
         var entity = await specInfoRepo.GetByIdAsync(id);
         if (entity == null)
@@ -180,20 +171,15 @@ public class SpecificationService(
             return null;
         }
 
-        var coreResponse = await GetSpecificationCoresAsync(id, coreParams);
-        if (coreResponse == null)
-        {
-            var defaultCoreMetadata = new PaginationMetadata(0, coreParams.PageSize, coreParams.PageNumber, 0, false, false);
-            coreResponse = new PaginatedSpecificationCoreResponse(defaultCoreMetadata, new List<SpecificationCoreDto>());
-        }
+        // You'll need non-paginated methods in your repositories (see Step 4)
+        var coreEntities = await specCoreRepo.GetAllBySpecificationIdAsync(id);
+        var extensionEntities = await specExtRepo.GetAllBySpecificationIdAsync(id);
 
-        var extensionResponse = await GetSpecificationExtensionsAsync(id, extParams);
-        if (extensionResponse == null)
-        {
-            var defaultExtMetadata = new PaginationMetadata(0, extParams.PageSize, extParams.PageNumber, 0, false, false);
-            extensionResponse = new PaginatedSpecificationExtensionResponse(defaultExtMetadata, new List<SpecificationExtensionComponentDto>());
-        }
+        // Map the full lists of entities to DTOs
+        var coreDtos = mapper.Map<ICollection<SpecificationCoreDto>>(coreEntities);
+        var extensionDtos = mapper.Map<ICollection<SpecificationExtensionComponentDto>>(extensionEntities);
 
+        // Construct the detail DTO
         var detailDto = new SpecificationIdentifyingInformationDetailDto(
             IdentityID: entity.IdentityID,
             SpecificationIdentifier: entity.SpecificationIdentifier,
@@ -218,8 +204,8 @@ public class SpecificationService(
             RegistrationStatus: entity.RegistrationStatus,
             SpecificationType: entity.SpecificationType,
             ConformanceLevel: entity.ConformanceLevel,
-            SpecificationCores: coreResponse,
-            SpecificationExtensionComponents: extensionResponse
+            SpecificationCores: coreDtos,
+            SpecificationExtensionComponents: extensionDtos
         );
 
         return detailDto;
@@ -235,14 +221,11 @@ public class SpecificationService(
             return (ServiceResult.Unauthorized, null);
         }
 
-        if (createDto.UserGroupID.HasValue)
+        var groupExists = await userGroupRepo.GetByIdAsync(createDto.UserGroupID);
+        if (groupExists == null)
         {
-            var groupExists = await userGroupRepo.GetByIdAsync(createDto.UserGroupID.Value);
-            if (groupExists == null)
-            {
-                logger.LogWarning("Attempt to create specification with non-existent UserGroupID {UserGroupId}", createDto.UserGroupID.Value);
-                return (ServiceResult.RefNotFound, null);
-            }
+            logger.LogWarning("Attempt to create specification with non-existent UserGroupID {UserGroupId}", createDto.UserGroupID);
+            return (ServiceResult.RefNotFound, null);
         }
 
         var entity = mapper.Map<SpecificationIdentifyingInformation>(createDto);
@@ -302,14 +285,11 @@ public class SpecificationService(
             return ServiceResult.Forbidden;
         }
 
-        if (updateDto.UserGroupID.HasValue)
+        var groupExists = await userGroupRepo.GetByIdAsync(updateDto.UserGroupID);
+        if (groupExists == null)
         {
-            var groupExists = await userGroupRepo.GetByIdAsync(updateDto.UserGroupID.Value);
-            if (groupExists == null)
-            {
-                logger.LogWarning("Attempt to update specification {SpecificationId} with non-existent UserGroupID {UserGroupId}", id, updateDto.UserGroupID.Value);
-                return ServiceResult.RefNotFound;
-            }
+            logger.LogWarning("Attempt to update specification {SpecificationId} with non-existent UserGroupID {UserGroupId}", id, updateDto.UserGroupID);
+            return ServiceResult.RefNotFound;
         }
 
         mapper.Map(updateDto, entity);
@@ -368,7 +348,7 @@ public class SpecificationService(
         return DeleteResult.Success;
     }
 
-    public async Task<ServiceResult> AssignSpecificationToGroupAsync(int specificationId, int? userGroupId, CurrentUserContext? currentUser)
+    public async Task<ServiceResult> AssignSpecificationToGroupAsync(int specificationId, int userGroupId, CurrentUserContext? currentUser)
     {
         if (currentUser == null)
         {
@@ -401,15 +381,14 @@ public class SpecificationService(
         return ServiceResult.Success;
     }
 
-    public async Task<PaginatedSpecificationCoreResponse?> GetSpecificationCoresAsync(int specificationId, PaginationParams paginationParams)
+    public async Task<IEnumerable<SpecificationCoreDto>?> GetSpecificationCoresAsync(int specificationId)
     {
         if (!await specInfoRepo.ExistsAsync(specificationId)) return null;
-        var pagedEntities = await specCoreRepo.GetBySpecificationIdPaginatedAsync(specificationId, paginationParams);
-        var dtos = mapper.Map<List<SpecificationCoreDto>>(pagedEntities.Items);
-        return new PaginatedSpecificationCoreResponse(
-            new PaginationMetadata(pagedEntities.TotalCount, pagedEntities.PageSize, pagedEntities.PageNumber, pagedEntities.TotalPages, pagedEntities.HasNextPage, pagedEntities.HasPreviousPage),
-            dtos
-        );
+
+        // Assumes GetAllBySpecificationIdAsync exists from our previous change
+        var entities = await specCoreRepo.GetAllBySpecificationIdAsync(specificationId);
+
+        return mapper.Map<IEnumerable<SpecificationCoreDto>>(entities);
     }
 
     public async Task<SpecificationCoreDto?> GetSpecificationCoreByIdAsync(int specificationId, int coreElementId)
@@ -485,15 +464,14 @@ public class SpecificationService(
         return saved ? ServiceResult.Success : ServiceResult.BadRequest;
     }
 
-    public async Task<PaginatedSpecificationExtensionResponse?> GetSpecificationExtensionsAsync(int specificationId, PaginationParams paginationParams)
+    public async Task<IEnumerable<SpecificationExtensionComponentDto>?> GetSpecificationExtensionsAsync(int specificationId)
     {
         if (!await specInfoRepo.ExistsAsync(specificationId)) return null;
-        var pagedEntities = await specExtRepo.GetBySpecificationIdPaginatedAsync(specificationId, paginationParams);
-        var dtos = mapper.Map<List<SpecificationExtensionComponentDto>>(pagedEntities.Items);
-        return new PaginatedSpecificationExtensionResponse(
-            new PaginationMetadata(pagedEntities.TotalCount, pagedEntities.PageSize, pagedEntities.PageNumber, pagedEntities.TotalPages, pagedEntities.HasNextPage, pagedEntities.HasPreviousPage),
-            dtos
-        );
+
+        // This calls the non-paginated method you created earlier
+        var entities = await specExtRepo.GetAllBySpecificationIdAsync(specificationId);
+
+        return mapper.Map<IEnumerable<SpecificationExtensionComponentDto>>(entities);
     }
 
     public async Task<SpecificationExtensionComponentDto?> GetSpecificationExtensionByIdAsync(int specificationId, int extensionElementId)
