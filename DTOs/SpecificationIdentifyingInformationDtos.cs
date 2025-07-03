@@ -1,10 +1,8 @@
-using System; // Required for DateTime
-using System.Collections.Generic; // Required for List
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace RegistryApi.DTOs;
-
-// Using records for DTOs where appropriate (especially for immutability)
 
 public record SpecificationIdentifyingInformationCreateDto(
     [Required][MaxLength(255)] string SpecificationIdentifier,
@@ -15,22 +13,19 @@ public record SpecificationIdentifyingInformationCreateDto(
     [MaxLength(50)] string? SpecificationVersion,
     [Required] string ContactInformation,
     DateTime? DateOfImplementation,
-    string? GoverningEntity,
+    [Required] int? UserGroupID,
     [MaxLength(50)] string? CoreVersion,
     [MaxLength(255)] string? SpecificationSourceLink,
     [MaxLength(200)] string? Country,
-    [MaxLength(50)] string? SpecificationType = "Extension", // Added SpecificationType
-    bool IsCountrySpecification = false, // Default value
+    [MaxLength(50)] string? SpecificationType = "Extension",
+    bool IsCountrySpecification = false,
     [MaxLength(255)] string? UnderlyingSpecificationIdentifier = null,
     [MaxLength(100)] string? PreferredSyntax = null,
-    
-    // New Status Fields - consider making them optional or providing defaults
-    [MaxLength(15)] string? ImplementationStatus = "Planned", // Default value
-    [MaxLength(15)] string? RegistrationStatus = "Submitted", // Default value
-    [MaxLength(25)] string? ConformanceLevel ="Core Conformant" // Added ConformanceLevel
+    [MaxLength(15)] string? ImplementationStatus = "Planned",
+    [MaxLength(15)] string? RegistrationStatus = "Submitted",
+    [MaxLength(25)] string? ConformanceLevel = "Core Conformant"
 );
 
-// Update DTO often mirrors Create DTO for PUT operations
 public record SpecificationIdentifyingInformationUpdateDto(
     [Required][MaxLength(255)] string SpecificationIdentifier,
     [Required] string SpecificationName,
@@ -40,21 +35,19 @@ public record SpecificationIdentifyingInformationUpdateDto(
     [MaxLength(50)] string? SpecificationVersion,
     [Required] string ContactInformation,
     DateTime? DateOfImplementation,
-    string? GoverningEntity,
+    [Required] int? UserGroupID,
     [MaxLength(50)] string? CoreVersion,
     [MaxLength(255)] string? SpecificationSourceLink,
     [MaxLength(200)] string? Country,
     bool IsCountrySpecification,
     [MaxLength(255)] string? UnderlyingSpecificationIdentifier,
     [MaxLength(100)] string? PreferredSyntax,
-    // New Status Fields
     [MaxLength(15)] string? ImplementationStatus,
     [MaxLength(15)] string? RegistrationStatus,
-    [MaxLength(50)] string? SpecificationType, // Added SpecificationType
-    [MaxLength(25)] string? ConformanceLevel // Added ConformanceLevel
+    [MaxLength(50)] string? SpecificationType,
+    [MaxLength(25)] string? ConformanceLevel
 );
 
-// Header DTO for summary information
 public record SpecificationIdentifyingInformationHeaderDto(
     int IdentityID,
     string SpecificationIdentifier,
@@ -63,33 +56,27 @@ public record SpecificationIdentifyingInformationHeaderDto(
     string? SpecificationVersion,
     DateTime? DateOfImplementation,
     string? Country,
-    // audit fields
     DateTime CreatedDate,
     DateTime ModifiedDate,
-    // New Status Fields
     string? ImplementationStatus,
     string? RegistrationStatus,
-    string? SpecificationType, // Added SpecificationType
-    string? ConformanceLevel, // Added ConformanceLevel
-    // Added fields
+    string? SpecificationType,
+    string? ConformanceLevel,
     string? Purpose,
     string? PreferredSyntax,
-    string? GoverningEntity
+    string? GoverningEntity, // This is now UserGroupID in the model, the group name is used as GoverningEntity
+    int? UserGroupID
 )
 {
-    // Parameterless constructor for AutoMapper if ever needed, though less likely for this specific DTO
-    public SpecificationIdentifyingInformationHeaderDto() : this(0, string.Empty, string.Empty, string.Empty, null, null, null, DateTime.MinValue, DateTime.MinValue, default!, default!, default!, default!, default!, default!, default!) { }
+    public SpecificationIdentifyingInformationHeaderDto() : this(0, string.Empty, string.Empty, string.Empty, null, null, null, DateTime.MinValue, DateTime.MinValue, default!, default!, default!, default!, default!, default!, default!, null) { }
 }
 
-// Response for paginated list of headers
 public record PaginatedSpecificationHeaderResponse(
     PaginationMetadata Metadata,
     List<SpecificationIdentifyingInformationHeaderDto> Items
 );
 
-// Detail DTO includes all fields and paginated child lists
 public record SpecificationIdentifyingInformationDetailDto(
-    // Inherited fields conceptually from HeaderDto
     int IdentityID,
     string SpecificationIdentifier,
     string SpecificationName,
@@ -97,33 +84,30 @@ public record SpecificationIdentifyingInformationDetailDto(
     string? SpecificationVersion,
     DateTime? DateOfImplementation,
     string? Country,
-    // Additional fields
     string? SubSector,
     string Purpose,
     string ContactInformation,
     string? GoverningEntity,
+    int? UserGroupID,
     string? CoreVersion,
     string? SpecificationSourceLink,
     bool IsCountrySpecification,
     string? UnderlyingSpecificationIdentifier,
     string? PreferredSyntax,
-    // New audit fields
     DateTime CreatedDate,
     DateTime ModifiedDate,
-    // New Status Fields
     string? ImplementationStatus,
     string? RegistrationStatus,
-    string? SpecificationType, // Added SpecificationType
-    string? ConformanceLevel, // Added ConformanceLevel
-    // Paginated child lists
+    string? SpecificationType,
+    string? ConformanceLevel,
     PaginatedSpecificationCoreResponse SpecificationCores,
     PaginatedSpecificationExtensionResponse SpecificationExtensionComponents
 )
 {
     public SpecificationIdentifyingInformationDetailDto() : this(
         0, string.Empty, string.Empty, string.Empty, null, null, null, null, string.Empty, string.Empty,
-        null, null, null, false, null, null, DateTime.MinValue, DateTime.MinValue,
-        null, null, null, null, // Added null for ConformanceLevel
+        null, null, null, null, false, null, null, DateTime.MinValue, DateTime.MinValue,
+        null, null, null, null,
         default!, default!
     )
     { }

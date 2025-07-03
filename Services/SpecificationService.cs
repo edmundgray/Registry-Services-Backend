@@ -7,41 +7,41 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
+using Microsoft.EntityFrameworkCore;
+using System.Linq;
 
 namespace RegistryApi.Services;
 
-// CurrentUserContext record is defined here (or in a shared location if preferred)
 public record CurrentUserContext(int UserId, string Role, int? UserGroupId);
 
 public class SpecificationService(
     ISpecificationIdentifyingInformationRepository specInfoRepo,
     ISpecificationCoreRepository specCoreRepo,
     ISpecificationExtensionComponentRepository specExtRepo,
+    IUserGroupRepository userGroupRepo,
     IMapper mapper,
     ILogger<SpecificationService> logger
     ) : ISpecificationService
 {
-    // Helper method for permission checks
     private async Task<bool> CanUserEditSpecification(int specificationId, CurrentUserContext? currentUser)
     {
         if (currentUser == null)
         {
             logger.LogWarning("Permission check (CanUserEditSpecification) failed: CurrentUserContext is null for specification ID {SpecificationId}.", specificationId);
-            return false; // No user context, no permission
+            return false;
         }
         if (currentUser.Role == "Admin")
         {
-            return true; // Admins can edit anything
+            return true;
         }
 
         var spec = await specInfoRepo.GetByIdAsync(specificationId);
         if (spec == null)
         {
             logger.LogWarning("Permission check (CanUserEditSpecification) failed: Specification with ID {SpecificationId} not found.", specificationId);
-            return false; // Specification not found
+            return false;
         }
 
-        // Users can edit if their group owns the specification
         bool canEdit = spec.UserGroupID.HasValue && spec.UserGroupID == currentUser.UserGroupId;
         if (!canEdit)
         {
@@ -51,12 +51,29 @@ public class SpecificationService(
         return canEdit;
     }
 
-    // --- Specification Header Methods ---
-
     public async Task<PaginatedSpecificationHeaderResponse> GetSpecificationsAsync(PaginationParams paginationParams)
     {
-        var pagedEntities = await specInfoRepo.GetAllPaginatedAsync(paginationParams, includeSubmitted: false); // Ensure submitted are excluded
-        var dtos = mapper.Map<List<SpecificationIdentifyingInformationHeaderDto>>(pagedEntities.Items);
+        var pagedEntities = await specInfoRepo.GetAllPaginatedAsync(paginationParams, includeSubmitted: false);
+
+        var dtos = pagedEntities.Items.Select(entity => new SpecificationIdentifyingInformationHeaderDto(
+            IdentityID: entity.IdentityID,
+            SpecificationIdentifier: entity.SpecificationIdentifier,
+            SpecificationName: entity.SpecificationName,
+            Sector: entity.Sector,
+            SpecificationVersion: entity.SpecificationVersion,
+            DateOfImplementation: entity.DateOfImplementation,
+            Country: entity.Country,
+            CreatedDate: entity.CreatedDate,
+            ModifiedDate: entity.ModifiedDate,
+            ImplementationStatus: entity.ImplementationStatus,
+            RegistrationStatus: entity.RegistrationStatus,
+            SpecificationType: entity.SpecificationType,
+            ConformanceLevel: entity.ConformanceLevel,
+            Purpose: entity.Purpose,
+            PreferredSyntax: entity.PreferredSyntax,
+            GoverningEntity: entity.UserGroup?.GroupName,
+            UserGroupID: entity.UserGroupID
+        )).ToList();
 
         return new PaginatedSpecificationHeaderResponse(
             Metadata: new PaginationMetadata(
@@ -74,7 +91,26 @@ public class SpecificationService(
     public async Task<PaginatedSpecificationHeaderResponse> GetAdminSpecificationsAsync(PaginationParams paginationParams)
     {
         var pagedEntities = await specInfoRepo.GetAllPaginatedAsync(paginationParams, includeSubmitted: true);
-        var dtos = mapper.Map<List<SpecificationIdentifyingInformationHeaderDto>>(pagedEntities.Items);
+
+        var dtos = pagedEntities.Items.Select(entity => new SpecificationIdentifyingInformationHeaderDto(
+            IdentityID: entity.IdentityID,
+            SpecificationIdentifier: entity.SpecificationIdentifier,
+            SpecificationName: entity.SpecificationName,
+            Sector: entity.Sector,
+            SpecificationVersion: entity.SpecificationVersion,
+            DateOfImplementation: entity.DateOfImplementation,
+            Country: entity.Country,
+            CreatedDate: entity.CreatedDate,
+            ModifiedDate: entity.ModifiedDate,
+            ImplementationStatus: entity.ImplementationStatus,
+            RegistrationStatus: entity.RegistrationStatus,
+            SpecificationType: entity.SpecificationType,
+            ConformanceLevel: entity.ConformanceLevel,
+            Purpose: entity.Purpose,
+            PreferredSyntax: entity.PreferredSyntax,
+            GoverningEntity: entity.UserGroup?.GroupName,
+            UserGroupID: entity.UserGroupID
+        )).ToList();
 
         return new PaginatedSpecificationHeaderResponse(
             Metadata: new PaginationMetadata(
@@ -89,15 +125,14 @@ public class SpecificationService(
         );
     }
 
-
     public async Task<(ServiceResult Status, PaginatedSpecificationHeaderResponse? Response)> GetSpecificationsByUserGroupAsync(
-        CurrentUserContext? currentUser, // Changed to nullable to handle potential null from controller
+        CurrentUserContext? currentUser,
         PaginationParams paginationParams)
     {
         if (currentUser == null)
         {
-            logger.LogWarning("GetSpecificationsByUserGroupAsync called with null CurrentUserContext. This might indicate an issue with token claims processing.");
-            return (ServiceResult.Unauthorized, null); // Or BadRequest, as an authenticated user should have a valid context
+            logger.LogWarning("GetSpecificationsByUserGroupAsync called with null CurrentUserContext.");
+            return (ServiceResult.Unauthorized, null);
         }
 
         PagedList<SpecificationIdentifyingInformation> pagedEntities;
@@ -118,7 +153,7 @@ public class SpecificationService(
         else
         {
             logger.LogError("Unknown role {Role} for user {UserId} attempting to get group specifications.", currentUser.Role, currentUser.UserId);
-            return (ServiceResult.Unauthorized, null); // Or BadRequest for unknown role
+            return (ServiceResult.Unauthorized, null);
         }
 
         var dtos = mapper.Map<List<SpecificationIdentifyingInformationHeaderDto>>(pagedEntities.Items);
@@ -138,10 +173,6 @@ public class SpecificationService(
 
     public async Task<SpecificationIdentifyingInformationDetailDto?> GetSpecificationByIdAsync(int id, PaginationParams coreParams, PaginationParams extParams)
     {
-        // Permissions to view a specific specification might also depend on user role/group.
-        // For now, this method doesn't take CurrentUserContext, implying any authenticated user can attempt to fetch.
-        // If stricter access is needed (e.g., only owner group or admin can view details), CurrentUserContext should be added.
-        // The current controller setup allows any authenticated user to hit this.
         var entity = await specInfoRepo.GetByIdAsync(id);
         if (entity == null)
         {
@@ -149,27 +180,20 @@ public class SpecificationService(
             return null;
         }
 
-        var coreResponse = await GetSpecificationCoresAsync(id, coreParams); // This method does not currently check permissions
-        var extensionResponse = await GetSpecificationExtensionsAsync(id, extParams); // This method does not currently check permissions
-
+        var coreResponse = await GetSpecificationCoresAsync(id, coreParams);
         if (coreResponse == null)
         {
-            logger.LogWarning("Core elements for specification ID {Id} could not be retrieved, defaulting to empty.", id);
             var defaultCoreMetadata = new PaginationMetadata(0, coreParams.PageSize, coreParams.PageNumber, 0, false, false);
             coreResponse = new PaginatedSpecificationCoreResponse(defaultCoreMetadata, new List<SpecificationCoreDto>());
         }
 
+        var extensionResponse = await GetSpecificationExtensionsAsync(id, extParams);
         if (extensionResponse == null)
         {
-            logger.LogWarning("Extension elements for specification ID {Id} could not be retrieved, defaulting to empty.", id);
             var defaultExtMetadata = new PaginationMetadata(0, extParams.PageSize, extParams.PageNumber, 0, false, false);
             extensionResponse = new PaginatedSpecificationExtensionResponse(defaultExtMetadata, new List<SpecificationExtensionComponentDto>());
         }
 
-        //var detailDto = mapper.Map<SpecificationIdentifyingInformationDetailDto>(entity);
-        //detailDto = detailDto with { SpecificationCores = coreResponse, SpecificationExtensionComponents = extensionResponse };
-
-        // Manual construction of the DTO using its primary constructor because of an error with the commented mapper.Map
         var detailDto = new SpecificationIdentifyingInformationDetailDto(
             IdentityID: entity.IdentityID,
             SpecificationIdentifier: entity.SpecificationIdentifier,
@@ -181,7 +205,8 @@ public class SpecificationService(
             SubSector: entity.SubSector,
             Purpose: entity.Purpose,
             ContactInformation: entity.ContactInformation,
-            GoverningEntity: entity.GoverningEntity,
+            GoverningEntity: entity.UserGroup?.GroupName,
+            UserGroupID: entity.UserGroupID,
             CoreVersion: entity.CoreVersion,
             SpecificationSourceLink: entity.SpecificationSourceLink,
             IsCountrySpecification: entity.IsCountrySpecification,
@@ -192,12 +217,11 @@ public class SpecificationService(
             ImplementationStatus: entity.ImplementationStatus,
             RegistrationStatus: entity.RegistrationStatus,
             SpecificationType: entity.SpecificationType,
-            ConformanceLevel: entity.ConformanceLevel, // Added ConformanceLevel
-            SpecificationCores: coreResponse, // Pass the correctly typed and populated object
-            SpecificationExtensionComponents: extensionResponse // Pass the correctly typed and populated object
+            ConformanceLevel: entity.ConformanceLevel,
+            SpecificationCores: coreResponse,
+            SpecificationExtensionComponents: extensionResponse
         );
 
-       
         return detailDto;
     }
 
@@ -208,7 +232,17 @@ public class SpecificationService(
         if (currentUser == null)
         {
             logger.LogWarning("Attempt to create specification without user context or with invalid claims.");
-            return (ServiceResult.Unauthorized, null); // Or BadRequest
+            return (ServiceResult.Unauthorized, null);
+        }
+
+        if (createDto.UserGroupID.HasValue)
+        {
+            var groupExists = await userGroupRepo.GetByIdAsync(createDto.UserGroupID.Value);
+            if (groupExists == null)
+            {
+                logger.LogWarning("Attempt to create specification with non-existent UserGroupID {UserGroupId}", createDto.UserGroupID.Value);
+                return (ServiceResult.RefNotFound, null);
+            }
         }
 
         var entity = mapper.Map<SpecificationIdentifyingInformation>(createDto);
@@ -218,25 +252,18 @@ public class SpecificationService(
         if (string.IsNullOrWhiteSpace(entity.ImplementationStatus)) entity.ImplementationStatus = "Planned";
         if (string.IsNullOrWhiteSpace(entity.RegistrationStatus)) entity.RegistrationStatus = "Submitted";
 
-        if (currentUser.Role == "User")
+        if (currentUser.Role == "Admin")
+        {
+            entity.UserGroupID = createDto.UserGroupID;
+        }
+        else
         {
             if (!currentUser.UserGroupId.HasValue)
             {
                 logger.LogWarning("User {UserId} (Role: User) attempted to create specification but has no UserGroupID.", currentUser.UserId);
                 return (ServiceResult.Forbidden, null);
             }
-            entity.UserGroupID = currentUser.UserGroupId;
-        }
-        else if (currentUser.Role == "Admin")
-        {
-            // Admin-created specifications are not assigned to a group unless explicitly done so later.
-            // Or, if the CreateDto allowed specifying a UserGroupID, an Admin could set it.
-            entity.UserGroupID = null;
-        }
-        else
-        {
-            logger.LogError("Unknown role {Role} for user {UserId} attempting to create specification.", currentUser.Role, currentUser.UserId);
-            return (ServiceResult.Unauthorized, null); // Or BadRequest for unknown role
+            entity.UserGroupID = currentUser.UserGroupId.Value;
         }
 
         await specInfoRepo.AddAsync(entity);
@@ -245,7 +272,9 @@ public class SpecificationService(
             logger.LogError("Failed to save new specification for user {UserId}.", currentUser.UserId);
             return (ServiceResult.BadRequest, null);
         }
-        return (ServiceResult.Success, mapper.Map<SpecificationIdentifyingInformationHeaderDto>(entity));
+
+        var createdEntity = await specInfoRepo.GetByIdAsync(entity.IdentityID);
+        return (ServiceResult.Success, mapper.Map<SpecificationIdentifyingInformationHeaderDto>(createdEntity));
     }
 
     public async Task<ServiceResult> UpdateSpecificationAsync(
@@ -256,7 +285,7 @@ public class SpecificationService(
         if (currentUser == null)
         {
             logger.LogWarning("Attempt to update specification {SpecificationId} without user context or with invalid claims.", id);
-            return ServiceResult.Unauthorized; // Or BadRequest
+            return ServiceResult.Unauthorized;
         }
 
         var entity = await specInfoRepo.GetByIdAsync(id);
@@ -264,19 +293,44 @@ public class SpecificationService(
 
         if (!await CanUserEditSpecification(id, currentUser))
         {
-            // Logging is done within CanUserEditSpecification
             return ServiceResult.Forbidden;
+        }
+
+        if (currentUser.Role != "Admin" && updateDto.UserGroupID != entity.UserGroupID)
+        {
+            logger.LogWarning("User {UserId} attempted to change UserGroupID on specification {SpecificationId} but is not an Admin.", currentUser.UserId, id);
+            return ServiceResult.Forbidden;
+        }
+
+        if (updateDto.UserGroupID.HasValue)
+        {
+            var groupExists = await userGroupRepo.GetByIdAsync(updateDto.UserGroupID.Value);
+            if (groupExists == null)
+            {
+                logger.LogWarning("Attempt to update specification {SpecificationId} with non-existent UserGroupID {UserGroupId}", id, updateDto.UserGroupID.Value);
+                return ServiceResult.RefNotFound;
+            }
         }
 
         mapper.Map(updateDto, entity);
         entity.ModifiedDate = DateTime.UtcNow;
 
         specInfoRepo.Update(entity);
-        if (!await specInfoRepo.SaveChangesAsync())
+
+        try
         {
-            logger.LogError("Failed to save updated specification {SpecificationId} by user {UserId}.", id, currentUser.UserId);
-            return ServiceResult.BadRequest;
+            if (!await specInfoRepo.SaveChangesAsync())
+            {
+                logger.LogError("Failed to save updated specification {SpecificationId} by user {UserId}. SaveChangesAsync returned false.", id, currentUser.UserId);
+                return ServiceResult.BadRequest;
+            }
         }
+        catch (DbUpdateException ex)
+        {
+            logger.LogError(ex, "Database update exception for specification {SpecificationId}. A foreign key constraint likely failed.", id);
+            return ServiceResult.Conflict;
+        }
+
         return ServiceResult.Success;
     }
 
@@ -285,7 +339,7 @@ public class SpecificationService(
         if (currentUser == null)
         {
             logger.LogWarning("Attempt to delete specification {SpecificationId} without user context or with invalid claims.", id);
-            return DeleteResult.Forbidden; // Or map to a generic error/unauthorized
+            return DeleteResult.Forbidden;
         }
 
         var entity = await specInfoRepo.GetByIdAsync(id);
@@ -293,7 +347,6 @@ public class SpecificationService(
 
         if (!await CanUserEditSpecification(id, currentUser))
         {
-            // Logging is done within CanUserEditSpecification
             return DeleteResult.Forbidden;
         }
 
@@ -320,7 +373,7 @@ public class SpecificationService(
         if (currentUser == null)
         {
             logger.LogWarning("Attempt to assign specification {SpecificationId} to group without user context.", specificationId);
-            return ServiceResult.Unauthorized; // Or BadRequest
+            return ServiceResult.Unauthorized;
         }
 
         if (currentUser.Role != "Admin")
@@ -336,13 +389,6 @@ public class SpecificationService(
             return ServiceResult.NotFound;
         }
 
-        // If assigning to a group, ensure the group exists (optional check, FK constraint would catch it too)
-        if (userGroupId.HasValue)
-        {
-            // Assuming IUserGroupRepository is available if needed, or rely on FK.
-            // For now, we trust the groupId if provided by an admin.
-        }
-
         spec.UserGroupID = userGroupId;
         spec.ModifiedDate = DateTime.UtcNow;
         specInfoRepo.Update(spec);
@@ -355,14 +401,8 @@ public class SpecificationService(
         return ServiceResult.Success;
     }
 
-
-    // --- Specification Core Methods ---
-
     public async Task<PaginatedSpecificationCoreResponse?> GetSpecificationCoresAsync(int specificationId, PaginationParams paginationParams)
     {
-        // TODO: Add permission check - can the current user view this specification's details?
-        // This would require passing CurrentUserContext here.
-        // For now, assumes if parent spec is viewable, its children are.
         if (!await specInfoRepo.ExistsAsync(specificationId)) return null;
         var pagedEntities = await specCoreRepo.GetBySpecificationIdPaginatedAsync(specificationId, paginationParams);
         var dtos = mapper.Map<List<SpecificationCoreDto>>(pagedEntities.Items);
@@ -374,7 +414,6 @@ public class SpecificationService(
 
     public async Task<SpecificationCoreDto?> GetSpecificationCoreByIdAsync(int specificationId, int coreElementId)
     {
-        // TODO: Add permission check here too, similar to GetSpecificationCoresAsync.
         var entity = await specCoreRepo.GetByIdAndSpecificationIdAsync(coreElementId, specificationId);
         return mapper.Map<SpecificationCoreDto>(entity);
     }
@@ -383,7 +422,7 @@ public class SpecificationService(
     {
         if (currentUser == null) return (ServiceResult.Unauthorized, null);
         if (!await CanUserEditSpecification(specificationId, currentUser)) return (ServiceResult.Forbidden, null);
-        if (!await specInfoRepo.ExistsAsync(specificationId)) return (ServiceResult.NotFound, null); // Parent spec not found
+        if (!await specInfoRepo.ExistsAsync(specificationId)) return (ServiceResult.NotFound, null);
         if (!await specCoreRepo.CoreInvoiceModelExistsAsync(createDto.BusinessTermID)) return (ServiceResult.RefNotFound, null);
 
         var entity = mapper.Map<SpecificationCore>(createDto);
@@ -394,10 +433,10 @@ public class SpecificationService(
         if (parentSpec != null)
         {
             parentSpec.ModifiedDate = DateTime.UtcNow;
-            specInfoRepo.Update(parentSpec); // This ensures ModifiedDate is updated on parent
+            specInfoRepo.Update(parentSpec);
         }
 
-        bool saved = await specCoreRepo.SaveChangesAsync(); // This should save both core element and parent spec changes if context is shared
+        bool saved = await specCoreRepo.SaveChangesAsync();
         return saved ? (ServiceResult.Success, mapper.Map<SpecificationCoreDto>(entity)) : (ServiceResult.BadRequest, null);
     }
 
@@ -407,9 +446,8 @@ public class SpecificationService(
         if (!await CanUserEditSpecification(specificationId, currentUser)) return ServiceResult.Forbidden;
 
         var entity = await specCoreRepo.GetByIdAndSpecificationIdAsync(coreElementId, specificationId);
-        if (entity == null) return ServiceResult.NotFound; // Core element or its link to spec not found
+        if (entity == null) return ServiceResult.NotFound;
 
-        // If BusinessTermID is part of updateDto and can change, validate it
         if (updateDto.BusinessTermID != entity.BusinessTermID && !await specCoreRepo.CoreInvoiceModelExistsAsync(updateDto.BusinessTermID))
         {
             return ServiceResult.RefNotFound;
@@ -447,11 +485,8 @@ public class SpecificationService(
         return saved ? ServiceResult.Success : ServiceResult.BadRequest;
     }
 
-    // --- Specification Extension Methods ---
-
     public async Task<PaginatedSpecificationExtensionResponse?> GetSpecificationExtensionsAsync(int specificationId, PaginationParams paginationParams)
     {
-        // TODO: Add permission check - can the current user view this specification's details?
         if (!await specInfoRepo.ExistsAsync(specificationId)) return null;
         var pagedEntities = await specExtRepo.GetBySpecificationIdPaginatedAsync(specificationId, paginationParams);
         var dtos = mapper.Map<List<SpecificationExtensionComponentDto>>(pagedEntities.Items);
@@ -463,7 +498,6 @@ public class SpecificationService(
 
     public async Task<SpecificationExtensionComponentDto?> GetSpecificationExtensionByIdAsync(int specificationId, int extensionElementId)
     {
-        // TODO: Add permission check here too.
         var entity = await specExtRepo.GetByIdAndSpecificationIdAsync(extensionElementId, specificationId);
         return mapper.Map<SpecificationExtensionComponentDto>(entity);
     }

@@ -34,8 +34,10 @@ public class SpecificationIdentifyingInformation
     public required string ContactInformation { get; set; }
 
     public DateTime? DateOfImplementation { get; set; }
-
-    public string? GoverningEntity { get; set; }
+    // This property is REMOVED and replaced with UserGroupID
+    // public string? GoverningEntity { get; set; }
+    [Required]
+    public int? UserGroupID { get; set; } // non Nullable Foreign Key to UserGroup where groupName = GoverningEntity
 
     [MaxLength(50)]
     public string? CoreVersion { get; set; }
@@ -64,7 +66,7 @@ public class SpecificationIdentifyingInformation
     public DateTime CreatedDate { get; set; }
     public DateTime ModifiedDate { get; set; }
     
-    public int? UserGroupID { get; set; } // Nullable Foreign Key
+   
 
     // New Status Fields
     [MaxLength(15)] // Adjust MaxLength as appropriate
@@ -83,11 +85,6 @@ public class SpecificationIdentifyingInformation
     [ForeignKey("UserGroupID")]
     public virtual UserGroup? UserGroup { get; set; }
 
-
-    // This navigation property is for the User who might have created this Specification.
-    // To make this fully functional with EF Core, a CreatorUserID foreign key would be needed in this table,
-    // and the relationship configured in DbContext. The current plan focuses on UserGroupID for ownership.
-    // public virtual User CreatorUser { get; set; } // Example if a CreatorUserID FK was added
 
     // Navigation properties - Initialized using collection expression []
     public virtual ICollection<SpecificationCore> SpecificationCores { get; set; } = [];

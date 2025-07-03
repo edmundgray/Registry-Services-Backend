@@ -1,10 +1,9 @@
-// In Repositories/SpecificationIdentifyingInformationRepository.cs
 using Microsoft.EntityFrameworkCore;
 using RegistryApi.Data;
-using RegistryApi.DTOs; // Ensure this using is present if PaginationParams is here
-using RegistryApi.Helpers; // Or ensure this using is present if PaginationParams is here
+using RegistryApi.DTOs;
+using RegistryApi.Helpers;
 using RegistryApi.Models;
-using System.Linq; // Required for Where clause
+using System.Linq;
 
 namespace RegistryApi.Repositories;
 
@@ -13,15 +12,13 @@ public class SpecificationIdentifyingInformationRepository(RegistryDbContext con
 {
     public async Task<PagedList<SpecificationIdentifyingInformation>> GetAllPaginatedAsync(PaginationParams paginationParams, bool includeSubmittedAndInProgress = false)
     {
-        var query = _dbSet.AsNoTracking();
+        var query = _dbSet.Include(s => s.UserGroup).AsNoTracking(); // UPDATED
 
         if (!includeSubmittedAndInProgress)
         {
-            var excludedStatuses = new List<string> { "submitted", "in Progress" };
             query = query.Where(s => s.RegistrationStatus == null || (s.RegistrationStatus.ToLower() != "submitted" && s.RegistrationStatus.ToLower() != "in progress"));
         }
 
-        // Generic SearchTerm Filter for SpecificationName, Purpose, and Sector
         if (!string.IsNullOrWhiteSpace(paginationParams.SearchTerm))
         {
             string searchTermLower = paginationParams.SearchTerm.ToLower();
@@ -32,7 +29,6 @@ public class SpecificationIdentifyingInformationRepository(RegistryDbContext con
             );
         }
 
-        // Specific Field Filters
         if (!string.IsNullOrWhiteSpace(paginationParams.SpecificationType))
         {
             query = query.Where(s => s.SpecificationType != null && s.SpecificationType.ToLower() == paginationParams.SpecificationType.ToLower());
@@ -48,41 +44,21 @@ public class SpecificationIdentifyingInformationRepository(RegistryDbContext con
             query = query.Where(s => s.Country != null && s.Country.ToLower() == paginationParams.Country.ToLower());
         }
 
-        // Sorting Logic
         if (!string.IsNullOrWhiteSpace(paginationParams.SortBy))
         {
             bool isDescending = paginationParams.SortOrder?.ToUpper() == "DESC";
-
-            switch (paginationParams.SortBy.ToLowerInvariant())
+            query = paginationParams.SortBy.ToLowerInvariant() switch
             {
-                case "specificationname":
-                    query = isDescending ? query.OrderByDescending(s => s.SpecificationName) : query.OrderBy(s => s.SpecificationName);
-                    break;
-                case "purpose":
-                    query = isDescending ? query.OrderByDescending(s => s.Purpose) : query.OrderBy(s => s.Purpose);
-                    break;
-                case "sector":
-                    query = isDescending ? query.OrderByDescending(s => s.Sector) : query.OrderBy(s => s.Sector);
-                    break;
-                case "country":
-                    query = isDescending ? query.OrderByDescending(s => s.Country) : query.OrderBy(s => s.Country);
-                    break;
-                case "specificationtype":
-                    query = isDescending ? query.OrderByDescending(s => s.SpecificationType) : query.OrderBy(s => s.SpecificationType);
-                    break;
-                case "modifieddate":
-                    query = isDescending ? query.OrderByDescending(s => s.ModifiedDate) : query.OrderBy(s => s.ModifiedDate);
-                    break;
-                case "createddate":
-                    query = isDescending ? query.OrderByDescending(s => s.CreatedDate) : query.OrderBy(s => s.CreatedDate);
-                    break;
-                case "specificationidentifier":
-                    query = isDescending ? query.OrderByDescending(s => s.SpecificationIdentifier) : query.OrderBy(s => s.SpecificationIdentifier);
-                    break;
-                default:
-                    query = query.OrderByDescending(s => s.ModifiedDate);
-                    break;
-            }
+                "specificationname" => isDescending ? query.OrderByDescending(s => s.SpecificationName) : query.OrderBy(s => s.SpecificationName),
+                "purpose" => isDescending ? query.OrderByDescending(s => s.Purpose) : query.OrderBy(s => s.Purpose),
+                "sector" => isDescending ? query.OrderByDescending(s => s.Sector) : query.OrderBy(s => s.Sector),
+                "country" => isDescending ? query.OrderByDescending(s => s.Country) : query.OrderBy(s => s.Country),
+                "specificationtype" => isDescending ? query.OrderByDescending(s => s.SpecificationType) : query.OrderBy(s => s.SpecificationType),
+                "modifieddate" => isDescending ? query.OrderByDescending(s => s.ModifiedDate) : query.OrderBy(s => s.ModifiedDate),
+                "createddate" => isDescending ? query.OrderByDescending(s => s.CreatedDate) : query.OrderBy(s => s.CreatedDate),
+                "specificationidentifier" => isDescending ? query.OrderByDescending(s => s.SpecificationIdentifier) : query.OrderBy(s => s.SpecificationIdentifier),
+                _ => query.OrderByDescending(s => s.ModifiedDate),
+            };
         }
         else
         {
@@ -96,9 +72,17 @@ public class SpecificationIdentifyingInformationRepository(RegistryDbContext con
     {
         var query = _dbSet
             .Where(s => s.UserGroupID == userGroupId)
+            .Include(s => s.UserGroup) // UPDATED
             .AsNoTracking()
             .OrderBy(s => s.SpecificationIdentifier);
         return await PagedList<SpecificationIdentifyingInformation>.CreateAsync(query, paginationParams.PageNumber, paginationParams.PageSize);
+    }
+
+    public override async Task<SpecificationIdentifyingInformation?> GetByIdAsync(int id)
+    {
+        return await _dbSet
+            .Include(s => s.UserGroup) // UPDATED: Eagerly load the UserGroup
+            .FirstOrDefaultAsync(s => s.IdentityID == id);
     }
 
     public async Task<bool> HasCoreElementsAsync(int id)
