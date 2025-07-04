@@ -56,6 +56,7 @@ builder.Services.AddAutoMapper(typeof(Program)); // Assumes SpecificationProfile
 builder.Services.AddScoped<ISpecificationIdentifyingInformationRepository, SpecificationIdentifyingInformationRepository>();
 builder.Services.AddScoped<ISpecificationCoreRepository, SpecificationCoreRepository>();
 builder.Services.AddScoped<ISpecificationExtensionComponentRepository, SpecificationExtensionComponentRepository>();
+builder.Services.AddScoped<IAdditionalRequirementRepository, AdditionalRequirementRepository>();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IUserGroupRepository, UserGroupRepository>();
 builder.Services.AddScoped<ICoreInvoiceModelRepository, CoreInvoiceModelRepository>(); // Add CoreInvoiceModelRepository

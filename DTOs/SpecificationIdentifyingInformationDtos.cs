@@ -101,14 +101,15 @@ public record SpecificationIdentifyingInformationDetailDto(
     string? SpecificationType,
     string? ConformanceLevel,
     ICollection<SpecificationCoreDto> SpecificationCores,
-    ICollection<SpecificationExtensionComponentDto> SpecificationExtensionComponents
+    ICollection<SpecificationExtensionComponentDto> SpecificationExtensionComponents,
+    ICollection<AdditionalRequirementDto> AdditionalRequirements
 )
 {
     public SpecificationIdentifyingInformationDetailDto() : this(
         0, string.Empty, string.Empty, string.Empty, null, null, null, null, string.Empty, string.Empty,
         null, 0, null, null, false, null, null, DateTime.MinValue, DateTime.MinValue,
         null, null, null, null,
-        default!, default!
+        default!, default!, default! // <-- ADD default! FOR THE NEW COLLECTION
     )
     { }
 }

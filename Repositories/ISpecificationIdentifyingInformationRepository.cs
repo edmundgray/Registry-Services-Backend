@@ -8,7 +8,7 @@ namespace RegistryApi.Repositories;
 public interface ISpecificationIdentifyingInformationRepository : IGenericRepository<SpecificationIdentifyingInformation>
 {
 
-    Task<PagedList<SpecificationIdentifyingInformation>> GetAllPaginatedAsync(PaginationParams paginationParams, bool includeSubmitted = false);
+    Task<PagedList<SpecificationIdentifyingInformation>> GetAllPaginatedAsync(PaginationParams paginationParams, bool includeSubmittedAndInProgress = false);
     Task<IEnumerable<SpecificationIdentifyingInformation>> GetByUserGroupIdAsync(int userGroupId);
     Task<IEnumerable<SpecificationIdentifyingInformation>> GetAllAsync(bool includeSubmittedAndInProgress = false);
 

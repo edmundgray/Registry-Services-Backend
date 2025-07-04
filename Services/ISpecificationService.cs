@@ -35,4 +35,10 @@ public interface ISpecificationService
     Task<(ServiceResult Status, SpecificationExtensionComponentDto? Dto)> AddExtensionElementAsync(int specificationId, SpecificationExtensionComponentCreateDto createDto, CurrentUserContext? currentUser);
     Task<ServiceResult> UpdateExtensionElementAsync(int specificationId, int extensionElementId, SpecificationExtensionComponentUpdateDto updateDto, CurrentUserContext? currentUser);
     Task<ServiceResult> DeleteExtensionElementAsync(int specificationId, int extensionElementId, CurrentUserContext? currentUser);
+
+    // --- Additional Requirement Methods ---
+    Task<IEnumerable<AdditionalRequirementDto>?> GetAdditionalRequirementsAsync(int specificationId);
+    Task<(ServiceResult Status, AdditionalRequirementDto? Dto)> AddAdditionalRequirementAsync(int specificationId, AdditionalRequirementCreateDto createDto, CurrentUserContext? currentUser);
+    Task<ServiceResult> UpdateAdditionalRequirementAsync(int specificationId, string businessTermId, AdditionalRequirementUpdateDto updateDto, CurrentUserContext? currentUser);
+    Task<ServiceResult> DeleteAdditionalRequirementAsync(int specificationId, string businessTermId, CurrentUserContext? currentUser);
 }

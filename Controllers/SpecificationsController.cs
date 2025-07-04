@@ -435,5 +435,94 @@ namespace RegistryApi.Controllers
                 _ => TypedResults.BadRequest("Could not delete extension element.")
             };
         }
+
+        // --- Additional Requirement Endpoints ---
+
+        [HttpGet("{specificationId:int}/additionalrequirements")]
+        [AllowAnonymous]
+        [ProducesResponseType<IEnumerable<AdditionalRequirementDto>>(StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<Results<Ok<IEnumerable<AdditionalRequirementDto>>, NotFound>> GetAdditionalRequirements(int specificationId)
+        {
+            var result = await _specificationService.GetAdditionalRequirementsAsync(specificationId);
+            return result == null ? TypedResults.NotFound() : TypedResults.Ok(result);
+        }
+
+        [HttpPost("{specificationId:int}/additionalrequirements")]
+        [ProducesResponseType<AdditionalRequirementDto>(StatusCodes.Status201Created)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status409Conflict)]
+        public async Task<Results<Created<AdditionalRequirementDto>, NotFound, BadRequest<string>, ForbidHttpResult, UnauthorizedHttpResult, Conflict<string>>> PostAdditionalRequirement(
+            int specificationId,
+            [FromBody] AdditionalRequirementCreateDto createDto)
+        {
+            if (!ModelState.IsValid) return TypedResults.BadRequest("Invalid additional requirement data.");
+
+            var currentUser = GetCurrentUserContextFromClaims();
+            if (currentUser == null) return TypedResults.Unauthorized();
+
+            var (status, dto) = await _specificationService.AddAdditionalRequirementAsync(specificationId, createDto, currentUser);
+
+            return status switch
+            {
+                ServiceResult.Success => TypedResults.Created($"/api/specifications/{specificationId}/additionalrequirements/{dto!.BusinessTermID}", dto),
+                ServiceResult.NotFound => TypedResults.NotFound(),
+                ServiceResult.Conflict => TypedResults.Conflict("An additional requirement with this BusinessTermID already exists for this specification."),
+                ServiceResult.Forbidden => TypedResults.Forbid(),
+                _ => TypedResults.BadRequest("Failed to add additional requirement.")
+            };
+        }
+
+        [HttpPut("{specificationId:int}/additionalrequirements/{businessTermId}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<Results<NoContent, NotFound, BadRequest<string>, ForbidHttpResult, UnauthorizedHttpResult>> PutAdditionalRequirement(
+            int specificationId,
+            string businessTermId,
+            [FromBody] AdditionalRequirementUpdateDto updateDto)
+        {
+            if (string.IsNullOrWhiteSpace(businessTermId)) return TypedResults.BadRequest("BusinessTermID cannot be empty.");
+            if (!ModelState.IsValid) return TypedResults.BadRequest("Invalid additional requirement update data.");
+
+            var currentUser = GetCurrentUserContextFromClaims();
+            if (currentUser == null) return TypedResults.Unauthorized();
+
+            var result = await _specificationService.UpdateAdditionalRequirementAsync(specificationId, businessTermId, updateDto, currentUser);
+
+            return result switch
+            {
+                ServiceResult.Success => TypedResults.NoContent(),
+                ServiceResult.NotFound => TypedResults.NotFound(),
+                ServiceResult.Forbidden => TypedResults.Forbid(),
+                _ => TypedResults.BadRequest("Failed to update additional requirement.")
+            };
+        }
+
+        [HttpDelete("{specificationId:int}/additionalrequirements/{businessTermId}")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<Results<NoContent, NotFound, ForbidHttpResult, BadRequest<string>, UnauthorizedHttpResult>> DeleteAdditionalRequirement(
+            int specificationId,
+            string businessTermId)
+        {
+            if (string.IsNullOrWhiteSpace(businessTermId)) return TypedResults.BadRequest("BusinessTermID cannot be empty.");
+
+            var currentUser = GetCurrentUserContextFromClaims();
+            if (currentUser == null) return TypedResults.Unauthorized();
+
+            var result = await _specificationService.DeleteAdditionalRequirementAsync(specificationId, businessTermId, currentUser);
+            return result switch
+            {
+                ServiceResult.Success => TypedResults.NoContent(),
+                ServiceResult.NotFound => TypedResults.NotFound(),
+                ServiceResult.Forbidden => TypedResults.Forbid(),
+                _ => TypedResults.BadRequest("Could not delete additional requirement.")
+            };
+        }
     }
 }

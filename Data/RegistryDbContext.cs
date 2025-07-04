@@ -15,7 +15,7 @@ public class RegistryDbContext(DbContextOptions<RegistryDbContext> options) : Db
     public DbSet<CoreInvoiceModel> CoreInvoiceModels => Set<CoreInvoiceModel>();
     public DbSet<ExtensionComponentsModelHeader> ExtensionComponentsModelHeaders => Set<ExtensionComponentsModelHeader>();
     public DbSet<ExtensionComponentModelElement> ExtensionComponentModelElements => Set<ExtensionComponentModelElement>();
-
+    public DbSet<AdditionalRequirement> AdditionalRequirements => Set<AdditionalRequirement>();
     // New DbSets for User and UserGroup
     public DbSet<User> Users => Set<User>();
     public DbSet<UserGroup> UserGroups => Set<UserGroup>();
@@ -111,6 +111,18 @@ public class RegistryDbContext(DbContextOptions<RegistryDbContext> options) : Db
                   .HasForeignKey(s => s.UserGroupID)
                   .IsRequired(true) // UserGroupID is required as foreign key in SpecificationIdentifyingInformation to ensure every specification has a governing entity
                   .OnDelete(DeleteBehavior.Restrict); // If UserGroup is deleted, set UserGroupID in Spec to NULL
+        });
+
+        modelBuilder.Entity<AdditionalRequirement>(entity =>
+        {
+            // Configure the composite primary key
+            entity.HasKey(ar => new { ar.IdentityID, ar.BusinessTermID });
+
+            // Configure the foreign key relationship to SpecificationIdentifyingInformation
+            entity.HasOne(ar => ar.SpecificationIdentifyingInformation)
+                  .WithMany(sii => sii.AdditionalRequirements) // Assumes you will add this navigation property to SpecificationIdentifyingInformation
+                  .HasForeignKey(ar => ar.IdentityID)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
 
         // If you decide to implement the CreatorUserID for the User.CreatedSpecifications navigation property:

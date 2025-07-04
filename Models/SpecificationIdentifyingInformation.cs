@@ -89,4 +89,6 @@ public class SpecificationIdentifyingInformation
     // Navigation properties - Initialized using collection expression []
     public virtual ICollection<SpecificationCore> SpecificationCores { get; set; } = [];
     public virtual ICollection<SpecificationExtensionComponent> SpecificationExtensionComponents { get; set; } = [];
+    
+    public virtual ICollection<AdditionalRequirement> AdditionalRequirements { get; set; } = [];
 }
