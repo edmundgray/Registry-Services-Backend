@@ -12,7 +12,7 @@ public class SpecificationIdentifyingInformationRepository(RegistryDbContext con
 {
     public async Task<PagedList<SpecificationIdentifyingInformation>> GetAllPaginatedAsync(PaginationParams paginationParams, bool includeSubmittedAndInProgress = false)
     {
-        var query = _dbSet.Include(s => s.UserGroup).AsNoTracking(); // UPDATED
+        var query = _dbSet.Include(s => s.UserGroup).AsNoTracking();
 
         if (!includeSubmittedAndInProgress)
         {
@@ -28,6 +28,44 @@ public class SpecificationIdentifyingInformationRepository(RegistryDbContext con
                 (s.Sector != null && s.Sector.ToLower().Contains(searchTermLower))
             );
         }
+
+        if (!string.IsNullOrWhiteSpace(paginationParams.ExtensionBusinessTermId))
+        {
+            string extensionBusinessTermIdLower = paginationParams.ExtensionBusinessTermId.ToLower();
+
+            var identityIdsQuery = _context.SpecificationExtensionComponents
+                                           .Where(sec => sec.BusinessTermID.ToLower().Contains(extensionBusinessTermIdLower))
+                                           .Select(sec => sec.IdentityID)
+                                           .Distinct();
+
+            query = query.Where(s => identityIdsQuery.Contains(s.IdentityID));
+        }
+
+        if (!string.IsNullOrWhiteSpace(paginationParams.CoreBusinessTermId))
+        {
+            string coreBusinessTermIdLower = paginationParams.CoreBusinessTermId.ToLower();
+
+            var identityIdsQuery = _context.SpecificationCores
+                                           .Where(sc => sc.BusinessTermID.ToLower().Contains(coreBusinessTermIdLower))
+                                           .Select(sc => sc.IdentityID)
+                                           .Distinct();
+
+            query = query.Where(s => identityIdsQuery.Contains(s.IdentityID));
+        }
+
+        // --- NEWLY ADDED BLOCK ---
+        if (!string.IsNullOrWhiteSpace(paginationParams.AddReqBusinessTermID))
+        {
+            string addReqBusinessTermIdLower = paginationParams.AddReqBusinessTermID.ToLower();
+
+            var identityIdsQuery = _context.AdditionalRequirements
+                                           .Where(ar => ar.BusinessTermID.ToLower().Contains(addReqBusinessTermIdLower))
+                                           .Select(ar => ar.IdentityID)
+                                           .Distinct();
+
+            query = query.Where(s => identityIdsQuery.Contains(s.IdentityID));
+        }
+        // --- END OF NEW BLOCK ---
 
         if (!string.IsNullOrWhiteSpace(paginationParams.SpecificationType))
         {
@@ -77,7 +115,6 @@ public class SpecificationIdentifyingInformationRepository(RegistryDbContext con
             query = query.Where(s => s.RegistrationStatus == null || (s.RegistrationStatus.ToLower() != "submitted" && s.RegistrationStatus.ToLower() != "in progress"));
         }
 
-        // You can add back ordering if you wish
         query = query.OrderByDescending(s => s.ModifiedDate);
 
         return await query.ToListAsync();
@@ -97,7 +134,7 @@ public class SpecificationIdentifyingInformationRepository(RegistryDbContext con
     public override async Task<SpecificationIdentifyingInformation?> GetByIdAsync(int id)
     {
         return await _dbSet
-            .Include(s => s.UserGroup) // UPDATED: Eagerly load the UserGroup
+            .Include(s => s.UserGroup)
             .FirstOrDefaultAsync(s => s.IdentityID == id);
     }
 

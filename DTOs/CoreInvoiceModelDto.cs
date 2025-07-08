@@ -12,7 +12,9 @@ public record CoreInvoiceModelDto(
     [Required][MaxLength(20)] string Cardinality,
     short RowPos,
     string? SemanticDescription,
-    string? UsageNote
+    string? UsageNote,
+    string? DataType,
+    string? BusinessRules
 )
 {
     /// <summary>
@@ -21,5 +23,5 @@ public record CoreInvoiceModelDto(
     /// <remarks>
     /// Initializes the DTO with default values. These will be overwritten by AutoMapper or other mapping mechanisms.
     /// </remarks>
-    public CoreInvoiceModelDto() : this(string.Empty, string.Empty, string.Empty, string.Empty, 0, null, null) { } // UPDATE THIS LINE
+    public CoreInvoiceModelDto() : this(string.Empty, string.Empty, string.Empty, string.Empty, 0, null, null, null, null) { }
 }
