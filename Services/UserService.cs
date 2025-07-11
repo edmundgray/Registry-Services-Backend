@@ -89,21 +89,115 @@ namespace RegistryApi.Services
             var tokenHandler = new JwtSecurityTokenHandler();
             var securityToken = tokenHandler.CreateToken(tokenDescriptor);
             var tokenString = tokenHandler.WriteToken(securityToken);
+            var refreshToken = GenerateRefreshToken();
             // --- End JWT Generation ---
 
             var userGroup = user.UserGroupID.HasValue ? await _userGroupRepository.GetByIdAsync(user.UserGroupID.Value) : null;
 
             var tokenDto = new UserTokenDto(
-                Token: tokenString, // Pass the generated token string
-                UserID: user.UserID,
-                Username: user.Username,
-                Role: user.Role,
-                UserGroupID: user.UserGroupID,
-                GroupName: userGroup?.GroupName
+                 token: tokenString, // Pass the generated token string
+                 refreshToken: refreshToken,
+                 expiresIn: expirationMinutes * 60,
+                 userId: user.UserID,
+                 username: user.Username,
+                 role: user.Role,
+                 userGroupID: user.UserGroupID,
+                 groupName: userGroup?.GroupName
+            );
+
+            user.RefreshToken = refreshToken;
+            user.RefreshTokenExpiryTime = DateTime.UtcNow.AddDays(7); // Example: Refresh token expires in 7 days
+            _userRepository.Update(user);
+            await _userRepository.SaveChangesAsync();
+
+
+            return (ServiceResult.Success, tokenDto, null);
+        }
+        public async Task<(ServiceResult Status, UserTokenDto? TokenDto, string? ErrorMessage)> RefreshTokenAsync(RefreshTokenDto refreshTokenDto)
+        {
+            var principal = GetPrincipalFromExpiredToken(refreshTokenDto.accessToken);
+            if (principal == null)
+            {
+                return (ServiceResult.Unauthorized, null, "Invalid token.");
+            }
+
+            var username = principal.Identity.Name;
+            var user = await _userRepository.GetByUsernameAsync(username);
+
+            if (user == null || user.RefreshToken != refreshTokenDto.refreshToken || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
+            {
+                return (ServiceResult.Unauthorized, null, "Invalid refresh token or refresh token expired.");
+            }
+
+            var newAccessToken = GenerateAccessToken(principal.Claims);
+            var newRefreshToken = GenerateRefreshToken();
+
+            user.RefreshToken = newRefreshToken;
+            _userRepository.Update(user);
+            await _userRepository.SaveChangesAsync();
+
+            var userGroup = user.UserGroupID.HasValue ? await _userGroupRepository.GetByIdAsync(user.UserGroupID.Value) : null;
+
+            var jwtSettings = _configuration.GetSection("JwtSettings");
+            var expirationMinutes = int.TryParse(jwtSettings["ExpirationInMinutes"], out var exp) ? exp : 60;
+
+            var tokenDto = new UserTokenDto(
+                token: newAccessToken,
+                refreshToken: newRefreshToken,
+                expiresIn: expirationMinutes * 60,
+                userId: user.UserID,
+                username: user.Username,
+                role: user.Role,
+                userGroupID: user.UserGroupID,
+                groupName: userGroup?.GroupName
             );
 
             return (ServiceResult.Success, tokenDto, null);
         }
+
+        private string GenerateAccessToken(IEnumerable<Claim> claims)
+        {
+            var jwtSettings = _configuration.GetSection("JwtSettings");
+            var secretKey = jwtSettings["SecretKey"];
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey));
+            var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+            var expirationMinutes = int.TryParse(jwtSettings["ExpirationInMinutes"], out var exp) ? exp : 60;
+
+            var token = new JwtSecurityToken(
+                issuer: jwtSettings["Issuer"],
+                audience: jwtSettings["Audience"],
+                claims: claims,
+                expires: DateTime.UtcNow.AddMinutes(expirationMinutes),
+                signingCredentials: creds
+            );
+
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        private string GenerateRefreshToken()
+        {
+            // Simple refresh token generation. In a real-world scenario, you might want to use a more secure random string generation.
+            return Guid.NewGuid().ToString();
+        }
+        private ClaimsPrincipal GetPrincipalFromExpiredToken(string token)
+        {
+            var tokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateAudience = false,
+                ValidateIssuer = false,
+                ValidateIssuerSigningKey = true,
+                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["JwtSettings:SecretKey"])),
+                ValidateLifetime = false
+            };
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var principal = tokenHandler.ValidateToken(token, tokenValidationParameters, out var securityToken);
+            if (securityToken is not JwtSecurityToken jwtSecurityToken || !jwtSecurityToken.Header.Alg.Equals(SecurityAlgorithms.HmacSha256, StringComparison.InvariantCultureIgnoreCase))
+                throw new SecurityTokenException("Invalid token");
+
+            return principal;
+        }
+
 
         // ... (other methods like RegisterUserAsync, UpdateLastLoginDateAsync, etc. remain the same)
         // Ensure other methods are present as per your existing UserService.cs

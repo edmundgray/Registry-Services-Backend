@@ -17,6 +17,7 @@ namespace RegistryApi.Services
         Task<ServiceResult> AssignUserToGroupAsync(int userId, int? userGroupId); // Admin action
         Task<ServiceResult> ChangeUserRoleAsync(int userId, string newRole); // Admin action
         Task<(ServiceResult Status, UserTokenDto? TokenDto, string? ErrorMessage)> AuthenticateUserAsync(UserLoginDto loginDto);
+        Task<(ServiceResult Status, UserTokenDto? TokenDto, string? ErrorMessage)> RefreshTokenAsync(RefreshTokenDto refreshTokenDto);
         Task<ServiceResult> UpdateLastLoginDateAsync(int userId);
         Task<ServiceResult> DeleteUserAsync(int userId); // Admin action
     }

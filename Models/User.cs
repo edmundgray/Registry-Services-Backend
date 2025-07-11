@@ -43,6 +43,9 @@ namespace RegistryApi.Models
 
         public DateTime? LastLoginDate { get; set; }
 
+        public string? RefreshToken { get; set; }
+        public DateTime? RefreshTokenExpiryTime { get; set; }
+
         // Navigation Properties
         [ForeignKey("UserGroupID")]
         public virtual UserGroup? UserGroup { get; set; }
@@ -55,4 +58,3 @@ namespace RegistryApi.Models
         public virtual ICollection<SpecificationIdentifyingInformation> CreatedSpecifications { get; set; } = new List<SpecificationIdentifyingInformation>();
     }
 }
-

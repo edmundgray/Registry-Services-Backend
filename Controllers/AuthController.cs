@@ -40,5 +40,25 @@ namespace RegistryApi.Controllers
                 _ => TypedResults.BadRequest(errorMessage ?? "Login failed for an unknown reason.")
             };
         }
+        [HttpPost("refresh-token")]
+        [ProducesResponseType(typeof(UserTokenDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> RefreshToken([FromBody] RefreshTokenDto refreshTokenDto)
+        {
+            if (!ModelState.IsValid)
+            {
+                return BadRequest(new { error = "invalid_grant", error_description = "Invalid refresh token request." });
+            }
+
+            var (serviceResult, tokenDto, errorMessage) = await _userService.RefreshTokenAsync(refreshTokenDto);
+
+            if (serviceResult == ServiceResult.Success)
+            {
+                return Ok(tokenDto);
+            }
+
+            return Unauthorized(new { error = "invalid_grant", error_description = errorMessage });
+        }
     }
 }

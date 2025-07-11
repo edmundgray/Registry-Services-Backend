@@ -51,12 +51,14 @@ namespace RegistryApi.DTOs
 
     // For returning a token (and basic user info) after successful login
     public record UserTokenDto(
-        string Token,
-        int UserID,
-        string Username,
-        string Role,
-        int? UserGroupID,
-        string? GroupName
+        string token,
+        string refreshToken,
+        long expiresIn,
+        int userId,
+        string username,
+        string role,
+        int? userGroupID,
+        string? groupName
     );
 
     public record RoleChangeDto(
@@ -64,4 +66,9 @@ namespace RegistryApi.DTOs
         string NewRole
     );
     // Could also have a Dto for password change, etc.
+
+    public record RefreshTokenDto(
+    [Required] string refreshToken,
+    [Required] string accessToken
+    );
 }
