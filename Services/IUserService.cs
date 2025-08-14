@@ -1,4 +1,7 @@
-﻿using RegistryApi.DTOs;
+﻿// SPDX-FileCopyrightText: 2025 CEN - European Committee for Standardization
+// SPDX-License-Identifier: EUPL-1.2
+
+using RegistryApi.DTOs;
 using RegistryApi.Helpers;
 using RegistryApi.Models; // Assuming ServiceResult is here or in a shared DTOs/Helpers namespace
 using System.Collections.Generic;

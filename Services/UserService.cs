@@ -1,4 +1,7 @@
-﻿using AutoMapper;
+﻿// SPDX-FileCopyrightText: 2025 CEN - European Committee for Standardization
+// SPDX-License-Identifier: EUPL-1.2
+
+using AutoMapper;
 using RegistryApi.DTOs;
 using RegistryApi.Models;
 using RegistryApi.Repositories;
