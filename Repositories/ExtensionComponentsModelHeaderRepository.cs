@@ -1,4 +1,7 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿// SPDX-FileCopyrightText: 2025 CEN - European Committee for Standardization
+// SPDX-License-Identifier: EUPL-1.2
+
+using Microsoft.EntityFrameworkCore;
 using RegistryApi.Data;
 using RegistryApi.DTOs;
 using RegistryApi.Helpers;
