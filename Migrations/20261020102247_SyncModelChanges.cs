@@ -18,9 +18,8 @@ namespace RegistryServices.Migrations
                 name: "FK_SpecificationIdentifyingInformation_UserGroups_UserGroupID",
                 table: "SpecificationIdentifyingInformation");
 
-            migrationBuilder.DropColumn(
-                name: "GoverningEntity",
-                table: "SpecificationIdentifyingInformation");
+            // GoverningEntity is no longer mapped by the model, but existing databases still hold
+            // values in it, so the column is deliberately left in place rather than dropped.
 
             migrationBuilder.AddColumn<string>(
                 name: "RefreshToken",
@@ -105,12 +104,6 @@ namespace RegistryServices.Migrations
                 nullable: true,
                 oldClrType: typeof(int),
                 oldType: "int");
-
-            migrationBuilder.AddColumn<string>(
-                name: "GoverningEntity",
-                table: "SpecificationIdentifyingInformation",
-                type: "nvarchar(max)",
-                nullable: true);
 
             migrationBuilder.AddForeignKey(
                 name: "FK_SpecificationIdentifyingInformation_UserGroups_UserGroupID",
