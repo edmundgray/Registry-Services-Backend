@@ -14,6 +14,13 @@ using Azure.Identity;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Container hosts (Railway, Docker) supply the listening port via PORT
+var port = Environment.GetEnvironmentVariable("PORT");
+if (!string.IsNullOrEmpty(port))
+{
+    builder.WebHost.UseUrls($"http://0.0.0.0:{port}");
+}
+
 // Configure Azure Key Vault for Staging and Production environments
 if (!builder.Environment.IsDevelopment() && !builder.Environment.IsEnvironment("Testing"))
 {
@@ -166,11 +173,36 @@ builder.Logging.AddConsole();
 // --- Build the application ---
 var app = builder.Build();
 
+// Apply EF Core migrations on startup when requested (used by Docker/Railway deployments)
+if (!app.Environment.IsEnvironment("Testing") && app.Configuration.GetValue<bool>("RunMigrationsOnStartup"))
+{
+    using var scope = app.Services.CreateScope();
+    scope.ServiceProvider.GetRequiredService<RegistryDbContext>().Database.Migrate();
+}
+
+// Behind a TLS-terminating proxy, trust X-Forwarded-* so scheme/client IP are correct
+var behindProxy = app.Configuration.GetValue<bool>("BehindProxy");
+if (behindProxy)
+{
+    var forwardedOptions = new ForwardedHeadersOptions
+    {
+        ForwardedHeaders = Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor
+                         | Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto
+    };
+    forwardedOptions.KnownNetworks.Clear();
+    forwardedOptions.KnownProxies.Clear();
+    app.UseForwardedHeaders(forwardedOptions);
+}
+
 // --- Configure the HTTP request pipeline ---
-if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
+if (app.Environment.IsDevelopment() || app.Environment.IsStaging() || app.Configuration.GetValue<bool>("EnableSwagger"))
 {
     app.UseSwagger();
     app.UseSwaggerUI();
+}
+
+if (app.Environment.IsDevelopment() || app.Environment.IsStaging())
+{
     app.UseDeveloperExceptionPage();
 }
 else
@@ -180,7 +212,11 @@ else
     app.UseHsts();
 }
 
-app.UseHttpsRedirection();
+// The proxy terminates TLS, so the container itself only serves HTTP
+if (!behindProxy)
+{
+    app.UseHttpsRedirection();
+}
 
 // --- START: Add CORS Middleware ---
 // IMPORTANT: UseCors must be placed correctly, typically after UseRouting (implicitly added by MapControllers)
@@ -195,6 +231,8 @@ app.UseCors("AllowSpecificOrigin");
 app.UseAuthentication();
 app.UseAuthorization();
 // --- END: Add Authentication and Authorization Middleware ---
+
+app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 
 app.MapControllers();
 
