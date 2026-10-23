@@ -1,0 +1,30 @@
+# Local stack: Registry API + SQL Server.
+# Usage:  docker compose up --build   then open http://localhost:8080/swagger
+# On ARM64 machines (SQL Server image is x86-only) set MSSQL_IMAGE=mcr.microsoft.com/azure-sql-edge:latest
+services:
+  db:
+    image: ${MSSQL_IMAGE:-mcr.microsoft.com/mssql/server:2022-latest}
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:-Registry_Local_Pass1}
+    ports:
+      - "1433:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+
+  api:
+    build: .
+    # Restarts until SQL Server is accepting connections and migrations succeed
+    restart: on-failure
+    depends_on:
+      - db
+    environment:
+      ConnectionStrings__RegistryDatabaseConnection: "Server=db,1433;Database=RegistryDatabase;User ID=sa;Password=${MSSQL_SA_PASSWORD:-Registry_Local_Pass1};TrustServerCertificate=True;"
+      JwtSettings__SecretKey: ${JWT_SECRET_KEY:-LocalDockerJwtSecretKeyAtLeast32BytesLong!!}
+      JwtSettings__Issuer: RegistryApi
+      JwtSettings__Audience: RegistryApiClient
+    ports:
+      - "8080:8080"
+
+volumes:
+  mssql-data:

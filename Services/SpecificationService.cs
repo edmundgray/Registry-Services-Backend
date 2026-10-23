@@ -212,6 +212,11 @@ namespace RegistryApi.Services
             return detailDto;
         }
 
+        // Statuses a non-admin may set themselves: a draft, or submitting it for review.
+        private static bool IsUserSettableRegistrationStatus(string? status) =>
+            string.Equals(status, "In Progress", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(status, "Submitted", StringComparison.OrdinalIgnoreCase);
+
         public async Task<(ServiceResult Status, SpecificationIdentifyingInformationHeaderDto? Dto)> CreateSpecificationAsync(
             SpecificationIdentifyingInformationCreateDto createDto,
             CurrentUserContext? currentUser)
@@ -235,6 +240,12 @@ namespace RegistryApi.Services
 
             if (string.IsNullOrWhiteSpace(entity.ImplementationStatus)) entity.ImplementationStatus = "Planned";
             if (string.IsNullOrWhiteSpace(entity.RegistrationStatus)) entity.RegistrationStatus = "Submitted";
+
+            if (currentUser.Role != "Admin" && !IsUserSettableRegistrationStatus(entity.RegistrationStatus))
+            {
+                logger.LogWarning("User {UserId} attempted to create a specification with RegistrationStatus {Status} but is not an Admin.", currentUser.UserId, entity.RegistrationStatus);
+                return (ServiceResult.Forbidden, null);
+            }
 
             if (currentUser.Role == "Admin")
             {
@@ -283,6 +294,16 @@ namespace RegistryApi.Services
             if (currentUser.Role != "Admin" && updateDto.UserGroupID != entity.UserGroupID)
             {
                 logger.LogWarning("User {UserId} attempted to change UserGroupID on specification {SpecificationId} but is not an Admin.", currentUser.UserId, id);
+                return ServiceResult.Forbidden;
+            }
+
+            // Non-admins may keep the current status or move between draft and submitted, but only
+            // admins can set review outcomes (e.g. Under review, Verified, Rejected).
+            if (currentUser.Role != "Admin"
+                && !string.Equals(updateDto.RegistrationStatus, entity.RegistrationStatus, StringComparison.OrdinalIgnoreCase)
+                && !IsUserSettableRegistrationStatus(updateDto.RegistrationStatus))
+            {
+                logger.LogWarning("User {UserId} attempted to set RegistrationStatus {Status} on specification {SpecificationId} but is not an Admin.", currentUser.UserId, updateDto.RegistrationStatus, id);
                 return ServiceResult.Forbidden;
             }
 

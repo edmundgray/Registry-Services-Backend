@@ -1,0 +1,15 @@
+bin/
+obj/
+.vs/
+examplejson/
+instructions/
+Properties/PublishProfiles/
+Properties/ServiceDependencies/
+*.user
+appsettings.Development.json
+appsettings.Staging.json
+.env
+docker-compose.yml
+Dockerfile
+.dockerignore
+db/
