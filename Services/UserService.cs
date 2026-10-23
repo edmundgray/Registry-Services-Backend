@@ -227,6 +227,10 @@ namespace RegistryApi.Services
             {
                 user.Role = "User";
             }
+            else if (user.Role != "Admin" && user.Role != "User")
+            {
+                return (ServiceResult.BadRequest, null, "Role must be 'Admin' or 'User'.");
+            }
             user.CreatedDate = DateTime.UtcNow;
             user.IsActive = true;
 

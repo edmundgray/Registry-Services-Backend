@@ -16,7 +16,7 @@ ENV ASPNETCORE_ENVIRONMENT=Production \
     PORT=8080 \
     BehindProxy=true \
     RunMigrationsOnStartup=true \
-    EnableSwagger=true
+    EnableSwagger=false
 
 COPY --from=build /app/publish .
 
