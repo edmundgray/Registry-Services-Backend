@@ -99,12 +99,32 @@ builder.Services.AddCors(options =>
 // --- START: JWT Authentication Configuration ---
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"];
+var isLocalEnvironment = builder.Environment.IsDevelopment() || builder.Environment.IsEnvironment("Testing");
 
-if (string.IsNullOrEmpty(secretKey))
+// No signing key is committed to the repo. Locally, fall back to a random per-process key
+// (tokens simply stop working after a restart); everywhere else a real key must be supplied
+// via the JwtSettings__SecretKey environment variable or a secret store.
+if (string.IsNullOrEmpty(secretKey) && isLocalEnvironment)
 {
-    // It's critical to have a secret key. Throw an exception if it's not found.
-    // This ensures the application doesn't start in an insecure state.
-    throw new InvalidOperationException("JWT SecretKey is not configured. Please set it in appsettings.json or user secrets.");
+    secretKey = Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(48));
+    builder.Configuration["JwtSettings:SecretKey"] = secretKey;
+}
+
+// Keys that have been published in this repository's history must never be accepted outside local use.
+string[] publishedKeys =
+{
+    "RegistryBackendSecretkeywhichmustbeatleast32byteslong",
+    "YOUR_PRODUCTION_JWT_SECRET_KEY_HERE_MUST_BE_AT_LEAST_32_BYTES_LONG",
+    "LocalDockerJwtSecretKeyAtLeast32BytesLong!!"
+};
+
+if (string.IsNullOrEmpty(secretKey)
+    || Encoding.UTF8.GetByteCount(secretKey) < 32
+    || (!isLocalEnvironment && publishedKeys.Contains(secretKey)))
+{
+    // Refuse to start rather than sign tokens with a missing, weak or publicly known key.
+    throw new InvalidOperationException(
+        "JwtSettings:SecretKey must be set to a private random value of at least 32 bytes (e.g. the JwtSettings__SecretKey environment variable).");
 }
 
 builder.Services.AddAuthentication(options =>

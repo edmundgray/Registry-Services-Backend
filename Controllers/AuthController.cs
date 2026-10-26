@@ -1,10 +1,12 @@
 ﻿// SPDX-FileCopyrightText: 2025 CEN - European Committee for Standardization
 // SPDX-License-Identifier: EUPL-1.2
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http.HttpResults; // For TypedResults
 using RegistryApi.DTOs;
 using RegistryApi.Services;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace RegistryApi.Controllers
@@ -62,6 +64,22 @@ namespace RegistryApi.Controllers
             }
 
             return Unauthorized(new { error = "invalid_grant", error_description = errorMessage });
+        }
+
+        // POST: api/auth/logout — revokes the caller's refresh token so the session can't be renewed
+        [HttpPost("logout")]
+        [Authorize]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        public async Task<IActionResult> Logout()
+        {
+            if (!int.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId))
+            {
+                return Unauthorized();
+            }
+
+            await _userService.RevokeRefreshTokenAsync(userId);
+            return NoContent();
         }
     }
 }
