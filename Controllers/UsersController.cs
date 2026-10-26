@@ -54,7 +54,9 @@ namespace RegistryApi.Controllers
 
 
         // POST: api/users/register
+        // Admin-only: the request chooses Role and UserGroupID, so anonymous access would let anyone create an Admin.
         [HttpPost("register")]
+        [Authorize(Roles = "Admin")]
         [ProducesResponseType<UserDto>(StatusCodes.Status201Created)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status409Conflict)]

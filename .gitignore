@@ -4,3 +4,8 @@
 
 /bin/Debug/net8.0
 /obj
+
+# Local Docker settings and database backups (contain real data)
+.env
+db/*.bak
+*.bacpac

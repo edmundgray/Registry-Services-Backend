@@ -22,6 +22,59 @@ namespace RegistryServices.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("RegistryApi.Models.AdditionalRequirement", b =>
+                {
+                    b.Property<int>("IdentityID")
+                        .HasColumnType("int")
+                        .HasColumnOrder(1);
+
+                    b.Property<string>("BusinessTermID")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)")
+                        .HasColumnOrder(0);
+
+                    b.Property<string>("BusinessRules")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("BusinessTermName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("Cardinality")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("DataType")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("Level")
+                        .IsRequired()
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<short>("RowPos")
+                        .HasColumnType("smallint");
+
+                    b.Property<string>("SemanticDescription")
+                        .HasColumnType("text");
+
+                    b.Property<string>("TypeOfChange")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("UsageNote")
+                        .HasColumnType("text");
+
+                    b.HasKey("IdentityID", "BusinessTermID");
+
+                    b.ToTable("AdditionalRequirements");
+                });
+
             modelBuilder.Entity("RegistryApi.Models.CoreInvoiceModel", b =>
                 {
                     b.Property<string>("ID")
@@ -274,9 +327,6 @@ namespace RegistryServices.Migrations
                     b.Property<DateTime?>("DateOfImplementation")
                         .HasColumnType("datetime2");
 
-                    b.Property<string>("GoverningEntity")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("ImplementationStatus")
                         .HasMaxLength(15)
                         .HasColumnType("nvarchar(15)");
@@ -333,7 +383,7 @@ namespace RegistryServices.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
-                    b.Property<int?>("UserGroupID")
+                    b.Property<int>("UserGroupID")
                         .HasColumnType("int");
 
                     b.Property<int?>("UserID")
@@ -381,6 +431,12 @@ namespace RegistryServices.Migrations
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RefreshToken")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("RefreshTokenExpiryTime")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("Role")
                         .IsRequired()
@@ -434,6 +490,17 @@ namespace RegistryServices.Migrations
                         .IsUnique();
 
                     b.ToTable("UserGroups", (string)null);
+                });
+
+            modelBuilder.Entity("RegistryApi.Models.AdditionalRequirement", b =>
+                {
+                    b.HasOne("RegistryApi.Models.SpecificationIdentifyingInformation", "SpecificationIdentifyingInformation")
+                        .WithMany("AdditionalRequirements")
+                        .HasForeignKey("IdentityID")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("SpecificationIdentifyingInformation");
                 });
 
             modelBuilder.Entity("RegistryApi.Models.ExtensionComponentModelElement", b =>
@@ -491,7 +558,8 @@ namespace RegistryServices.Migrations
                     b.HasOne("RegistryApi.Models.UserGroup", "UserGroup")
                         .WithMany("Specifications")
                         .HasForeignKey("UserGroupID")
-                        .OnDelete(DeleteBehavior.SetNull);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("RegistryApi.Models.User", null)
                         .WithMany("CreatedSpecifications")
@@ -527,6 +595,8 @@ namespace RegistryServices.Migrations
 
             modelBuilder.Entity("RegistryApi.Models.SpecificationIdentifyingInformation", b =>
                 {
+                    b.Navigation("AdditionalRequirements");
+
                     b.Navigation("SpecificationCores");
 
                     b.Navigation("SpecificationExtensionComponents");
