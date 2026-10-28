@@ -19,8 +19,10 @@ services:
     depends_on:
       - db
     environment:
+      # Development: Swagger on, and a random JWT key per start unless JWT_SECRET_KEY is set
+      ASPNETCORE_ENVIRONMENT: Development
       ConnectionStrings__RegistryDatabaseConnection: "Server=db,1433;Database=RegistryDatabase;User ID=sa;Password=${MSSQL_SA_PASSWORD:-Registry_Local_Pass1};TrustServerCertificate=True;"
-      JwtSettings__SecretKey: ${JWT_SECRET_KEY:-LocalDockerJwtSecretKeyAtLeast32BytesLong!!}
+      JwtSettings__SecretKey: ${JWT_SECRET_KEY:-}
       JwtSettings__Issuer: RegistryApi
       JwtSettings__Audience: RegistryApiClient
     ports:
